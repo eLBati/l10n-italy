@@ -3,8 +3,8 @@
 -
   !record {model: res.bank, id: bank1}:
     name: Bank1
-    abi: abi_bank1
-    cab: cab_bank1
+    abi: abi_1
+    cab: cab_1
 
 -
   I create a Partner
@@ -34,5 +34,5 @@
   I check the field abi and cab
 -
   !assert {model: res.partner.bank, id: partner_bank_1}:
-    - bank_abi != 'abi_bank1'
-    - bank_cab != 'cab_bank1'
+    - bank_abi == 'abi_1'
+    - bank_cab == 'cab_1'
