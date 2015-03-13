@@ -61,7 +61,7 @@ class WizardImportFatturapa(orm.TransientModel):
         else:
             # TODO: manage here wrong VAT
             vals = {
-                'name': xmlDataCedentePrestatore.nomeCedentePrestatore,
+                'name': xmlDataCedentePrestatore.nomeRappresentanteFiscale,
                 'vat': xmlDataCedentePrestatore.idFiscaleIVA,
                 'fiscalcode': xmlDataCedentePrestatore.codiceFiscale,
                 'customer': False,
