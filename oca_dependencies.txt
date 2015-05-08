@@ -1,0 +1,1 @@
+partner_firstname https://github.com/OCA/partner-contact
