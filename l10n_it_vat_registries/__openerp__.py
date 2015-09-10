@@ -26,10 +26,8 @@
     'name': 'Italian Localization - VAT Registries',
     'version': '8.0.2.0.0',
     'category': 'Localization/Italy',
-    'author': """
-        Agile Business Group,Odoo Community Association (OCA),
-        LinkIt Spa'
-        """,
+    "author": "Agile Business Group, Odoo Community Association (OCA)"
+        ", LinkIt Spa",
     'website': 'http://www.agilebg.com',
     'license': 'AGPL-3',
     "depends": [

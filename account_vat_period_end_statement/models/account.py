@@ -471,7 +471,7 @@ class account_vat_period_end_statement(orm.Model):
                         'date': statement.date,
                         'period_id': period_ids[0],
                     }
-                    #import pdb;pdb.set_trace()
+
                     if debit_line.amount > 0:
                         debit_vat_data['debit'] = math.fabs(debit_line.amount)
                     else:

@@ -34,10 +34,8 @@
         "report",
         "l10n_it_fiscalcode",
         ],
-    "author": """
-        Agile Business Group, Odoo Community Association (OCA),
-        LinkIt Spa
-        """,
+    "author": "Agile Business Group, Odoo Community Association (OCA)"
+        ", LinkIt Spa",
     'website': 'http://www.agilebg.com',
     'data': [
         'wizard/add_period.xml',
