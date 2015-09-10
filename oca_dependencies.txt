@@ -1,2 +1,3 @@
 partner-contact
 account-invoice-reporting
+stock-logistics-workflow
