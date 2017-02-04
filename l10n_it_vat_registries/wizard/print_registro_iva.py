@@ -38,7 +38,7 @@ class WizardRegistroIva(models.TransientModel):
     @api.onchange('tax_registry_id')
     def on_change_vat_registry(self):
         self.journal_ids = self.tax_registry_id.journal_ids
-        self.layout_type = self.tax_registry_id.layout_type 
+        self.layout_type = self.tax_registry_id.layout_type
 
     @api.onchange('date_range_id')
     def on_change_date_range_id(self):
