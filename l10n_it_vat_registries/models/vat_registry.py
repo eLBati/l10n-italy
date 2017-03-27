@@ -55,7 +55,6 @@ class ReportRegistroIva(models.AbstractModel):
         
         for move_line in move.line_ids:
             set_cee_absolute_value = False
-
             if not(move_line.tax_line_id or move_line.tax_ids):
                 continue
 
@@ -73,7 +72,6 @@ class ReportRegistroIva(models.AbstractModel):
 
             if (registry_type == 'customer' and tax.cee_type == 'sale') or \
                     (registry_type == 'supplier' and tax.cee_type == 'purchase'):
-                # Prendo la parte di competenza di ogni registro e lo sommo sempre
                 set_cee_absolute_value = True
 
             elif tax.cee_type:
@@ -96,7 +94,8 @@ class ReportRegistroIva(models.AbstractModel):
             if set_cee_absolute_value:
                 tax_amount = abs(tax_amount)
 
-            if 'receivable' in move.move_type or ('payable_refund' == move.move_type and tax_amount > 0):
+            if 'receivable' in move.move_type or \
+            ('payable_refund' == move.move_type and tax_amount > 0):
                 # otherwise refund would be positive and invoices
                 # negative
                 tax_amount = -tax_amount
@@ -187,6 +186,7 @@ class ReportRegistroIva(models.AbstractModel):
             'to_date': data['to_date'],
             'vat_registry_journal_ids': data['journal_ids'],
         }
+        
         tax = self.env['account.tax'].with_context(context).browse(tax.id)
         tax_name = self._get_tax_name(tax)
         if not tax.children_tax_ids:
@@ -196,13 +196,20 @@ class ReportRegistroIva(models.AbstractModel):
             )
         else:
             base_balance = tax.base_balance
-
+            
             tax_balance = 0
             deductible = 0
             undeductible = 0
             for child in tax.children_tax_ids:
                 child_balance = child.balance
-                
+                if (data['registry_type'] == 'customer' and child.cee_type == 'sale') or \
+                    (data['registry_type'] == 'supplier' and child.cee_type == 'purchase'):
+                    # Prendo la parte di competenza di ogni registro e lo sommo sempre
+                    child_balance = abs(child_balance)
+
+                elif child.cee_type:
+                    continue
+
                 tax_balance += child_balance
                 if child.account_id:
                     deductible += child_balance

@@ -20,7 +20,9 @@ class AccountTax(models.Model):
     cee_type = fields.Selection([
             ('sale', 'Sale'),
             ('purchase', 'Purchase')
-            ], 'Cee Type')
+            ], string='Include in VAT registries',
+            help="""Use in the case of tax on 'VAT integration'. specifies the VAT
+             register (sales / purchases) it has to be computed the tax.""")
 
     def get_balance_domain(self, state_list, type_list):
         domain = super(AccountTax, self).get_balance_domain(
