@@ -106,6 +106,10 @@ class StockPickingPackagePreparation(models.Model):
         help="This depends on 'To be Invoiced' field of the Reason for "
              "Transportation of this DDT")
     show_price = fields.Boolean(string='Show prices on report')
+    weight_manual = fields.Float(
+        string="Force Weight",
+        help="Fill this field with the value you want to be used as weight. "
+             "Leave empty to let the system to compute it")
 
     @api.onchange('partner_id', 'ddt_type_id')
     def on_change_partner(self):
@@ -183,11 +187,14 @@ class StockPickingPackagePreparation(models.Model):
                  'package_id.quant_ids',
                  'picking_ids',
                  'picking_ids.move_lines',
-                 'picking_ids.move_lines.quant_ids')
+                 'picking_ids.move_lines.quant_ids',
+                 'weight_manual')
     def _compute_weight(self):
         super(StockPickingPackagePreparation, self)._compute_weight()
         for prep in self:
-            if not prep.package_id:
+            if prep.weight_manual:
+                prep.weight = prep.weight_manual
+            elif not prep.package_id:
                 quants = self.env['stock.quant']
                 for picking in prep.picking_ids:
                     for line in picking.move_lines:
