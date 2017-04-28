@@ -369,6 +369,64 @@ class StockPickingPackagePreparationLine(models.Model):
         string='Discount (%)', digits=dp.get_precision('Discount'),
         default=0.0)
 
+    @api.onchange('product_id')
+    def _onchange_product_id(self):
+        super(StockPickingPackagePreparationLine, self)._onchange_product_id()
+        if self.product_id:
+            order = self.package_preparation_id._get_sale_order_ref()
+            partner = order and order.partner_id \
+                or self.package_preparation_id.partner_id
+            product = self.product_id.with_context(
+                lang=self.package_preparation_id.partner_id.lang,
+                partner=partner.id,
+                quantity=self.product_uom_qty,
+                date=self.package_preparation_id.date,
+                pricelist=order and order.pricelist_id.id or False,
+                uom=self.product_uom_id.id
+            )
+            # Tax
+            taxes = product.taxes_id
+            fpos = order and order.fiscal_position_id or \
+                self.package_preparation_id.partner_id.\
+                property_account_position_id
+            self.tax_ids = fpos.map_tax(
+                taxes, product, partner) if fpos else taxes
+            # Price and discount
+            self.price_unit = product.price
+            if order:
+                context_partner = dict(
+                    self.env.context, partner_id=partner.id)
+                pricelist_context = dict(
+                    context_partner, uom=self.product_uom_id.id,
+                    date=order.date_order)
+                price, rule_id = order.pricelist_id.with_context(
+                    pricelist_context).get_product_price_rule(
+                    product, self.product_uom_qty or 1.0, partner)
+                new_list_price, currency_id = self.env['sale.order.line']\
+                    .with_context(context_partner)._get_real_price_currency(
+                    self.product_id, rule_id, self.product_uom_qty,
+                    self.product_uom_id, order.pricelist_id.id)
+                datas = self._prepare_price_discount(new_list_price, rule_id)
+                for key in datas.keys():
+                    setattr(self, key, datas[key])
+
+    @api.model
+    def _prepare_price_discount(self, price, rule_id):
+        """
+        Use this method for other fields added in the line.
+        Use key of dict to specify the field that will be updated
+        """
+        res = {
+            'price_unit': price
+        }
+        # Discount
+        if rule_id:
+            rule = self.env['product.pricelist.item'].browse(rule_id)
+            if rule.pricelist_id.discount_policy == \
+                    'without_discount':
+                res['discount'] = rule.price_discount
+        return res
+
     @api.model
     def _prepare_lines_from_pickings(self, picking_ids):
         """
