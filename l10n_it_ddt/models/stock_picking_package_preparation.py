@@ -10,8 +10,10 @@ from odoo.exceptions import Warning as UserError
 
 from odoo.tools import float_is_zero, float_compare
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT
+from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
 
 import odoo.addons.decimal_precision as dp
+from datetime import datetime
 
 
 class StockPickingCarriageCondition(models.Model):
@@ -216,6 +218,25 @@ class StockPickingPackagePreparation(models.Model):
                     sale_order = sm.procurement_id.sale_line_id.order_id
                     return sale_order
         return sale_order
+    
+    @api.multi
+    def _prepare_invoice_description(self):
+        invoice_description = ''
+        lang = self.env['res.lang']._lang_get(self.env.lang)
+        date_format = lang.date_format
+        ddt_date_from = self._context.get('ddt_date_from', False)
+        ddt_date_to = self._context.get('ddt_date_to', False)
+        if ddt_date_from and ddt_date_to:
+            invoice_description = '{} {} - {}'.format(
+                _('Competenza:'),
+                datetime.strptime(ddt_date_from,DEFAULT_SERVER_DATE_FORMAT)\
+                    .strftime(date_format),
+                datetime.strptime(ddt_date_to,DEFAULT_SERVER_DATE_FORMAT)\
+                    .strftime(date_format)
+                )
+        if not invoice_description:
+            invoice_description = self.ddt_number or ''
+        return invoice_description
 
     @api.multi
     def _prepare_invoice(self):
@@ -245,8 +266,9 @@ class StockPickingPackagePreparation(models.Model):
         payment_term_id = (
             order and order.payment_term_id.id or
             self.partner_id.property_payment_term_id.id)
+        invoice_description = self._prepare_invoice_description()
         invoice_vals = {
-            'name': self.ddt_number or '',
+            'name': invoice_description or '',
             'origin': self.ddt_number,
             'type': 'out_invoice',
             'account_id': (
