@@ -40,6 +40,12 @@ coverage.xml
 # Pycharm
 .idea
 
+# Eclipse
+.settings/
+
+# Pydev
+.pydevproject
+
 # Mr Developer
 .mr.developer.cfg
 .project
