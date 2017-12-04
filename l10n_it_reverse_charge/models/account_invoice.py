@@ -218,7 +218,7 @@ class AccountInvoice(models.Model):
             # testa se nota credito o debito
             if (self.type == 'in_invoice') and move_line.debit:
                 payment_debit_line = move_line
-            elif (self.type == 'in_refund') and inv_line.credit:
+            elif (self.type == 'in_refund') and move_line.credit:
                 payment_debit_line = move_line
         inv_lines_to_rec = move_line_model.browse(
             [self.get_inv_line_to_reconcile().id,
