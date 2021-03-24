@@ -31,7 +31,7 @@ Italiano
 Impostazioni obbligatorie:
 
 * Un registro utilizzato per la registrazione di giroconto (ad es. "Bolle Doganali" o "Varie") da impostare in configurazione contabilità.
-* Un imposta con aliquota standard da applicare alla bolla doganale (ad es. "22% debito ExtraUE") da impostare in configurazione contabilità.
+* Un imposta con aliquota standard da applicare alla bolla doganale (ad es. "22% credito ExtraUE") da impostare in configurazione contabilità.
   In questo modo questa imposta viene evidenziata nei registri IVA.
 * Un fornitore "Dogana" per le bolle doganali, da impostare in configurazione contabilità.
 * Un registro per le fatture dei fornitori extra UE, distinto da quello delle fatture passive ordinarie.
