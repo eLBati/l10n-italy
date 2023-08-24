@@ -4,11 +4,12 @@
 
 {
     'name': 'ITA - Gestione Cespiti',
-    'version': '12.0.1.0.0',
+    'version': '12.0.1.0.1',
     'category': 'Localization/Italy',
     'summary': "Gestione Cespiti",
     'author': 'Openforce, Odoo Community Association (OCA)',
-    'website': 'https://github.com/OCA/l10n-italy/tree/12.0/assets_management',
+    'website': 'https://github.com/OCA/l10n-italy'
+               '/tree/12.0/assets_management',
     'license': 'AGPL-3',
     'depends': [
         'account',

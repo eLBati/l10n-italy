@@ -21,6 +21,7 @@ class ReportAccountBalanceReport(models.TransientModel):
         [('profit_loss', "Profit & Loss"),
          ('balance_sheet', "Balance Sheet")],
     )
+    hide_accounts_codes = fields.Boolean()
     left_col_name = fields.Char()
     right_col_name = fields.Char()
     section_credit_ids = fields.One2many(
@@ -44,7 +45,8 @@ class ReportAccountBalanceReport(models.TransientModel):
     trial_balance_id = fields.Many2one(
         'report_trial_balance',
         ondelete='cascade',
-        required=True
+        required=True,
+        index=True,
     )
 
     @api.multi
@@ -127,9 +129,9 @@ class ReportAccountBalanceReport(models.TransientModel):
                 continue
 
             sign = trial_acc_line.get_balance_sign()
-            trial_acc_line.period_balance *= sign
+            trial_acc_line.final_balance *= sign
             for trial_partner_line in trial_acc_line.partner_ids:
-                trial_partner_line.period_balance *= sign
+                trial_partner_line.final_balance *= sign
 
             balance_line_vals = (
                 0, 0, {
@@ -149,11 +151,11 @@ class ReportAccountBalanceReport(models.TransientModel):
             if section == r_sec:
                 section_credit_vals.append(balance_line_vals)
                 if not trial_acc_line.account_group_id:
-                    total_credit += trial_acc_line.period_balance
+                    total_credit += trial_acc_line.final_balance
             elif section == l_sec:
                 section_debit_vals.append(balance_line_vals)
                 if not trial_acc_line.account_group_id:
-                    total_debit += trial_acc_line.period_balance
+                    total_debit += trial_acc_line.final_balance
 
         curr = self.company_id.currency_id or self.company_id._get_euro()
         digits = curr.decimal_places
@@ -242,16 +244,19 @@ class ReportAccountBalanceReportAccount(models.TransientModel):
     )
     report_credit_id = fields.Many2one(
         'account_balance_report',
-        ondelete='cascade'
+        ondelete='cascade',
+        index=True
     )
     report_debit_id = fields.Many2one(
         'account_balance_report',
-        ondelete='cascade'
+        ondelete='cascade',
+        index=True
     )
     trial_balance_line_id = fields.Many2one(
         'report_trial_balance_account',
         ondelete='cascade',
-        required=True
+        required=True,
+        index=True
     )
 
 
@@ -270,23 +275,25 @@ class ReportAccountBalanceReportPartner(models.TransientModel):
     )
     report_section_id = fields.Many2one(
         'account_balance_report_account',
-        ondelete='cascade'
+        ondelete='cascade',
+        index=True
     )
     trial_balance_partner_id = fields.Many2one(
         'report_trial_balance_partner',
         ondelete='cascade',
-        required=True
+        required=True,
+        index=True
     )
 
     @api.multi
-    @api.depends('period_balance',
+    @api.depends('final_balance',
                  'report_id.hide_account_at_0',
-                 'trial_balance_partner_id.period_balance')
+                 'trial_balance_partner_id.final_balance')
     def _compute_hide_line(self):
         report = self.mapped('report_section_id.report_credit_id') \
             + self.mapped('report_section_id.report_debit_id')
         if report.hide_account_at_0:
             for partner_line in self:
-                p_bal = partner_line.period_balance
+                p_bal = partner_line.final_balance
                 digits = partner_line.currency_id.decimal_places
                 partner_line.hide_line = float_is_zero(p_bal, digits)

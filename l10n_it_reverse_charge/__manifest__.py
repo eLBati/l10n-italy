@@ -6,13 +6,13 @@
 
 {
     'name': 'ITA - Inversione contabile',
-    'version': '12.0.1.2.7',
+    'version': '12.0.1.3.1',
     'category': 'Localization/Italy',
     'summary': 'Inversione contabile',
     'author': 'Odoo Italia Network, Odoo Community Association (OCA)',
     'license': 'LGPL-3',
-    'website': 'https://github.com/OCA/l10n-italy/tree/'
-               '12.0/l10n_it_reverse_charge',
+    'website': 'https://github.com/OCA/l10n-italy'
+               '/tree/12.0/l10n_it_reverse_charge',
     'depends': [
         'account',
         'account_cancel',

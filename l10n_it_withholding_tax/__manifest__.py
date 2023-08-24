@@ -5,11 +5,12 @@
 
 {
     "name": "ITA - Ritenute d'acconto",
-    'version': '12.0.2.1.5',
+    'version': '12.0.2.1.6',
     'category': 'Account',
     'author': 'Openforce, Odoo Italia Network, '
               'Odoo Community Association (OCA)',
-    'website': 'https://github.com/OCA/l10n-italy',
+    'website': 'https://github.com/OCA/l10n-italy'
+               '/tree/12.0/l10n_it_withholding_tax',
     'license': 'AGPL-3',
     "depends": [
         'account',

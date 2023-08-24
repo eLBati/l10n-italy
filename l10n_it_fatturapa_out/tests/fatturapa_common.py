@@ -3,6 +3,7 @@ import tempfile
 from lxml import etree
 from odoo.modules.module import get_module_resource
 from odoo.addons.account.tests.account_test_users import AccountTestUsers
+from odoo.tests import Form
 
 
 class FatturaPACommon(AccountTestUsers):
@@ -100,10 +101,12 @@ class FatturaPACommon(AccountTestUsers):
             seq_date = inv_seq._create_date_range_seq(dt)
         seq_date.number_next_actual = invoice_number
 
-    def run_wizard(self, invoice_id):
+    def run_wizard(self, invoice_ids):
+        if not isinstance(invoice_ids, list):
+            invoice_ids = [invoice_ids]
         wizard = self.wizard_model.create({})
         return wizard.with_context(
-            {'active_ids': [invoice_id]}).exportFatturaPA()
+            {'active_ids': invoice_ids}).exportFatturaPA()
 
     def set_e_invoice_file_id(self, e_invoice, file_name):
         # We need this because file name is random and we can't predict it
@@ -123,7 +126,7 @@ class FatturaPACommon(AccountTestUsers):
         test_fatt_content = base64.decodebytes(test_fatt_data)
         test_fatt = etree.fromstring(test_fatt_content, parser)
         xml = etree.fromstring(xml_content, parser)
-        self.assertEqual(etree.tostring(test_fatt), etree.tostring(xml))
+        self.assertTreesEqual(test_fatt, xml)
 
     def getFilePath(self, filepath):
         with open(filepath, 'rb') as test_data:
@@ -146,22 +149,16 @@ class FatturaPACommon(AccountTestUsers):
         return self.getFilePath(path)
 
     def _create_invoice(self):
-        invoice_line_data = {
-            'product_id': self.product_product_10.id,
-            'quantity': 1,
-            'price_unit': 1,
-            'account_id': self.a_recv.id,
-            'name': self.product_product_10.name,
-            'invoice_line_tax_ids': [(6, 0, [self.ref('l10n_it_fatturapa.tax_22')])]
-        }
-        return self.invoice_model.create(
-            dict(
-                name='Test Invoice',
-                account_id=self.a_recv.id,
-                invoice_line_ids=[(0, 0, invoice_line_data)],
-                partner_id=self.res_partner_fatturapa_0.id
+        invoice_form = Form(self.invoice_model)
+        invoice_form.partner_id = self.res_partner_fatturapa_0
+        with invoice_form.invoice_line_ids.new() as invoice_line:
+            invoice_line.product_id = self.product_product_10
+            invoice_line.invoice_line_tax_ids.clear()
+            invoice_line.invoice_line_tax_ids.add(
+                self.env.ref('l10n_it_fatturapa.tax_22'),
             )
-        )
+        invoice = invoice_form.save()
+        return invoice
 
     def _create_e_invoice(self):
         invoice = self._create_invoice()

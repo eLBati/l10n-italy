@@ -29,7 +29,7 @@ class TestEInvoiceResponse(EInvoiceCommon):
         e-invoice to 'validated'"""
         e_invoice = self._create_e_invoice()
         self.set_e_invoice_file_id(e_invoice, 'IT03339130126_00009.xml')
-        e_invoice.send_via_pec()
+        e_invoice.send_to_sdi()
 
         incoming_mail = self._get_file(
             'POSTA CERTIFICATA_ Ricevuta di consegna 6782414.txt')
@@ -43,7 +43,7 @@ class TestEInvoiceResponse(EInvoiceCommon):
         """Receiving a 'CONSEGNA' posts a mail.message in the e-invoice"""
         e_invoice = self._create_e_invoice()
         self.set_e_invoice_file_id(e_invoice, 'IT03339130126_00009.xml')
-        e_invoice.send_via_pec()
+        e_invoice.send_to_sdi()
 
         incoming_mail = self._get_file(
             'CONSEGNA_ IT03339130126_00009.xml.txt')
@@ -66,7 +66,7 @@ class TestEInvoiceResponse(EInvoiceCommon):
         """Receiving a 'ACCETTAZIONE' posts a mail.message in the e-invoice"""
         e_invoice = self._create_e_invoice()
         self.set_e_invoice_file_id(e_invoice, 'IT03339130126_00009.xml')
-        e_invoice.send_via_pec()
+        e_invoice.send_to_sdi()
 
         incoming_mail = self._get_file(
             'ACCETTAZIONE_ IT03339130126_00009.xml.txt')
@@ -108,6 +108,32 @@ class TestEInvoiceResponse(EInvoiceCommon):
         self.assertEqual(e_invoices.xml_supplier_id.vat,
                          'IT02652600210')
 
+    def test_process_response_INVIO_base64(self):
+        """
+        Receiving a 'Invio File' containing a base64 attachment
+        creates a new e-invoice
+        """
+        incoming_mail = self._get_file(
+            'POSTA CERTIFICATA: Invio File 7339338 (base64).txt')
+
+        e_invoices = self.attach_in_model.search([])
+
+        msg_dict = self.env['mail.thread'] \
+            .message_parse(message=incoming_mail)
+
+        self.env['mail.thread'] \
+            .with_context(fetchmail_server_id=self.PEC_server.id) \
+            .message_process(False, incoming_mail)
+
+        e_invoices = self.attach_in_model.search([]) - e_invoices
+
+        self.assertTrue(e_invoices)
+        self.assertEqual(
+            Datetime.from_string(e_invoices.e_invoice_received_date),
+            Datetime.from_string(msg_dict['date']))
+        self.assertEqual(e_invoices.xml_supplier_id.vat,
+                         'IT02780790107')
+
     def test_process_response_INVIO_broken_XML(self):
         """Receiving a 'Invio File' with a broken XML sends an email
         to e_inv_notify_partner_ids"""
@@ -144,7 +170,7 @@ class TestEInvoiceResponse(EInvoiceCommon):
         self.set_sequences(2621, '2019-01-08')
         e_invoice = self._create_e_invoice()
         self.set_e_invoice_file_id(e_invoice, 'IT14627831002_02621.xml')
-        e_invoice.send_via_pec()
+        e_invoice.send_to_sdi()
 
         incoming_mail = self._get_file(
             'POSTA CERTIFICATA_mancata_consegna.txt')

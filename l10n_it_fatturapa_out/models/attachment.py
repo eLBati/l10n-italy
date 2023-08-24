@@ -6,18 +6,10 @@ from odoo.exceptions import UserError
 
 
 class FatturaPAAttachment(models.Model):
+    _inherit = "fatturapa.attachment"
     _name = "fatturapa.attachment.out"
-    _description = "E-invoice Export File"
-    _inherits = {'ir.attachment': 'ir_attachment_id'}
-    _inherit = ['mail.thread']
-    _order = 'id desc'
+    _description = "Electronic Invoice"
 
-    ir_attachment_id = fields.Many2one(
-        'ir.attachment', 'Attachment', required=True, ondelete="cascade")
-    att_name = fields.Char(
-        string="E-invoice file name",
-        related='ir_attachment_id.name',
-        store=True)
     out_invoice_ids = fields.One2many(
         'account.invoice', 'fatturapa_attachment_out_id',
         string="Out Invoices", readonly=True)
@@ -41,6 +33,11 @@ class FatturaPAAttachment(models.Model):
         string='State',
         default='ready',
         track_visibility='onchange'
+    )
+    sending_user = fields.Many2one(
+        comodel_name="res.users",
+        string="Sending User",
+        readonly=True,
     )
     sending_date = fields.Datetime("Sent Date", readonly=True)
     delivered_date = fields.Datetime("Delivered Date", readonly=True)

@@ -6,14 +6,14 @@
 
 {
     "name": "ITA - Liquidazione IVA",
-    "version": "12.0.1.8.0",
+    "version": "12.0.1.8.1",
     'category': 'Localization/Italy',
     'summary': "Allow to create the 'VAT Statement'.",
     'license': 'AGPL-3',
     "author": "Agile Business Group, Odoo Community Association (OCA)"
               ", LinkIt Spa",
-    'website': 'https://github.com/OCA/l10n-italy/tree/12.0/'
-               'account_vat_period_end_statement',
+    'website': 'https://github.com/OCA/l10n-italy'
+               '/tree/12.0/account_vat_period_end_statement',
     "depends": [
         "account",
         "account_tax_balance",
