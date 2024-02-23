@@ -4,34 +4,8 @@
   License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
   -->
 <odoo>
-    <template id="report_invoice" inherit_id="account.report_invoice">
-        <xpath expr='//t[@t-call="account.report_invoice_document"]' position="after">
-            <t
-                t-if="o._get_name_invoice_report() == 'l10n_it_withholding_tax.print_withholding_tax'"
-                t-call="l10n_it_withholding_tax.print_withholding_tax"
-                t-lang="lang"
-            />
-        </xpath>
-    </template>
 
-    <template
-        id="report_invoice_with_payments"
-        inherit_id="account.report_invoice_with_payments"
-    >
-        <xpath expr='//t[@t-call="account.report_invoice_document"]' position="after">
-            <t
-                t-if="o._get_name_invoice_report() == 'l10n_it_withholding_tax.print_withholding_tax'"
-                t-call="l10n_it_withholding_tax.print_withholding_tax"
-                t-lang="lang"
-            />
-        </xpath>
-    </template>
-
-    <template
-        id="print_withholding_tax"
-        inherit_id="account.report_invoice_document"
-        primary="True"
-    >
+    <template id="print_withholding_tax" inherit_id="account.report_invoice_document">
         <xpath
             expr="//table[@name='invoice_line_table']/thead/tr/th[6]"
             position="after"

@@ -546,12 +546,6 @@ class AccountMove(models.Model):
             res.update({"context": ctx})
         return res
 
-    def _get_name_invoice_report(self):
-        self.ensure_one()
-        if self.company_id.account_fiscal_country_id.code == "IT":
-            return "l10n_it_withholding_tax.print_withholding_tax"
-        return super()._get_name_invoice_report()
-
 
 class AccountMoveLine(models.Model):
     _inherit = "account.move.line"
