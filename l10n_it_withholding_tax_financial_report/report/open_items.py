@@ -4,15 +4,11 @@ from odoo import models
 class OpenItemsReport(models.AbstractModel):
     _inherit = "report.account_financial_report.open_items"
 
-    def _get_net_pay_amounts(self, move_line, original):
-        amount_net_pay = original + move_line.withholding_tax_amount
-        amount_net_pay_residual = amount_net_pay
-        reconciled_amls = move_line.mapped("matched_debit_ids.debit_move_id")
-        for line in reconciled_amls:
-            if not line.withholding_tax_generated_by_move_id:
-                amount_net_pay_residual += line.debit or line.credit
-        amount_net_pay_residual = amount_net_pay_residual
-        return amount_net_pay, amount_net_pay_residual
+    def _get_net_pay_amounts(self, move_line):
+        return (
+            move_line.withholding_tax_amount_net_pay,
+            move_line.withholding_tax_amount_net_pay_residual,
+        )
 
     def _get_data(
         self,
