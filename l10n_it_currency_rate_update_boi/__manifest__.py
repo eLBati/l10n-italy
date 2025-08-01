@@ -7,8 +7,7 @@
     "category": "Financial Management/Configuration",
     "summary": "Update exchange rates using www.bancaditalia.it",
     "author": "TAKOBI, " "Odoo Community Association (OCA)",
-    "website": "https://github.com/OCA/l10n-italy"
-    "/tree/18.0/currency_rate_update_boi",
+    "website": "https://github.com/OCA/l10n-italy",
     "maintainers": ["eLBati"],
     "license": "AGPL-3",
     "installable": True,
@@ -17,5 +16,5 @@
         "account",
         "currency_rate_update",
     ],
-    "data": [],
+    "pre_init_hook": "pre_absorb_old_module",
 }
