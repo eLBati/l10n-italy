@@ -17,6 +17,7 @@
         ],
     },
     "depends": [
+        "l10n_it_account",
         "l10n_it_edi_sdi",
         "mail",
     ],
