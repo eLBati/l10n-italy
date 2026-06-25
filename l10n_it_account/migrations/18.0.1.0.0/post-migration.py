@@ -160,8 +160,7 @@ def migrate(cr, version):
         migration_function = globals().get(f"_{module}_migration")
         if openupgrade.is_module_installed(env.cr, module) and migration_function:
             migration_function(env)
-        if module != "l10n_it_fatturapa_pec":
-            # `l10n_it_fatturapa_pec` will be
-            # migrated and removed
-            # in `l10n_it_edi_pec`
+        if module not in ["l10n_it_declaration_of_intent", "l10n_it_fatturapa_pec"]:
+            # `l10n_it_fatturapa_pec` will be migrated and removed in `l10n_it_edi_pec`
+            # `l10n_it_declaration_of_intent` in `l10n_it_edi_doi_extension`
             _remove_module(env, module)
