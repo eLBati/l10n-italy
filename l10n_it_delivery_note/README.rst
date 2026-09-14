@@ -59,6 +59,11 @@ including:
 -  DDT Date
 -  Line references
 
+Only the confirmed Delivery Notes of this module are exported: the DDT
+number that ``l10n_it_stock_ddt`` assigns to the pickings and the DDT
+field of ``l10n_it_edi`` on the invoice are hidden and they are never
+exported, not even for invoices without Delivery Notes.
+
 The module also handles the distinction between immediate and deferred
 invoices:
 
@@ -96,6 +101,11 @@ includendo:
 -  Numero del DDT
 -  Data del DDT
 -  Riferimenti alle righe
+
+Vengono esportati solo i DDT confermati di questo modulo: il numero DDT
+che ``l10n_it_stock_ddt`` assegna ai prelievi e il campo DDT di
+``l10n_it_edi`` nella fattura sono nascosti e non vengono mai esportati,
+nemmeno nelle fatture senza DDT.
 
 Il modulo gestisce anche la distinzione tra fatture immediate e
 differite:
@@ -205,6 +215,23 @@ Accesso da portale
 Gli utenti portal hanno la possibilità di scaricare i report dei DDT di
 cui loro o la loro azienda padre sono impostati come destinatari o
 indirizzo di spedizione.
+
+Known issues / Roadmap
+======================
+
+**Italiano**
+
+Con questo modulo installato i prelievi non sono più DDT per la
+fatturazione elettronica, quindi i test di ``l10n_it_stock_ddt`` che se
+lo aspettano (ad esempio ``TestItEdiDDT.test_deferred_invoice`` e i
+controlli su ``l10n_it_ddt_ids`` in ``TestDDT``) falliscono.
+
+**English**
+
+With this module installed the pickings are no longer DDT for electronic
+invoicing, so the tests of ``l10n_it_stock_ddt`` expecting it (e.g.
+``TestItEdiDDT.test_deferred_invoice`` and the checks on
+``l10n_it_ddt_ids`` in ``TestDDT``) fail.
 
 Bug Tracker
 ===========

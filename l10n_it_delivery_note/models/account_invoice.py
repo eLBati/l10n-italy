@@ -172,11 +172,9 @@ class AccountInvoice(models.Model):
 
     def _l10n_it_edi_invoice_is_direct(self):
         """An invoice is direct if ddt are all done the same day as the invoice."""
-        if self.delivery_note_ids:
-            return all(
-                ddt.date and ddt.date == self.invoice_date
-                for ddt in self.delivery_note_ids
-            )
+        delivery_notes = self._get_dati_ddt_delivery_notes()
+        if delivery_notes:
+            return all(ddt.date == self.invoice_date for ddt in delivery_notes)
         return super()._l10n_it_edi_invoice_is_direct()
 
     def _l10n_it_edi_get_values(self, pdf_values=None):
@@ -186,11 +184,20 @@ class AccountInvoice(models.Model):
         return values
 
     def _get_ddt_values(self):
-        # The DdT of this module replace the pickings of l10n_it_stock_ddt,
-        # otherwise the same shipping would be exported twice
-        if self.delivery_note_ids:
-            return {}
-        return super()._get_ddt_values()
+        # The DdT are the delivery notes of this module, the pickings are not:
+        # the DdT number that l10n_it_stock_ddt assigns to them is hidden,
+        # it must not be exported even if the invoice has no delivery notes
+        return {}
+
+    def _get_dati_ddt_delivery_notes(self):
+        """Get the DdT to export, sorted by date.
+
+        NumeroDDT and DataDDT are mandatory, so only confirmed DdT are exported.
+        """
+        self.ensure_one()
+        return self.delivery_note_ids.filtered(lambda dn: dn.name and dn.date).sorted(
+            lambda dn: (dn.date, dn.id)
+        )
 
     def _get_dati_ddt_invoice_lines(self, delivery_note):
         """
@@ -205,15 +212,10 @@ class AccountInvoice(models.Model):
             lambda line: line.display_type == "product"
         )
         sale_lines = delivery_note.line_ids.sale_line_id
-        lines = invoice_lines.filtered(
+        return invoice_lines.filtered(
             lambda line, dn=delivery_note: line.sale_line_ids & sale_lines
             or line.delivery_note_id == dn
         )
-        if not lines and len(self.delivery_note_ids) == 1:
-            # Nothing to follow (e.g. DdT lines without sale order):
-            # the only DdT of the invoice ships all of its lines
-            return invoice_lines
-        return lines
 
     def _get_dati_ddt(self, base_lines):
         """
@@ -223,10 +225,7 @@ class AccountInvoice(models.Model):
         """
         self.ensure_one()
 
-        # NumeroDDT and DataDDT are mandatory, so only confirmed DdT are exported
-        delivery_notes = self.delivery_note_ids.filtered(
-            lambda dn: dn.name and dn.date
-        ).sorted(lambda dn: (dn.date, dn.id))
+        delivery_notes = self._get_dati_ddt_delivery_notes()
         if not delivery_notes:
             return []
 
