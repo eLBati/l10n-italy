@@ -8,7 +8,7 @@ class AccountMoveLine(models.Model):
     _inherit = "account.move.line"
 
     def _l10n_it_edi_doi_ext_get_validation_message(self, doi_tax):
-        """Message explaining why this line is not counted for the DoI of the Move."""
+        """Message explaining why this line is not valid for the DoI of the Move."""
         self.ensure_one()
         return (
             self.env._(
@@ -17,7 +17,7 @@ class AccountMoveLine(models.Model):
                 doi_tax=doi_tax.name,
                 line_name=self.name,
             )
-            # The line only contains the DoI Tax
-            if not (self.tax_ids == doi_tax)
+            # The line contains the DoI Tax together with other Taxes
+            if doi_tax in self.tax_ids and self.tax_ids != doi_tax
             else ""
         )

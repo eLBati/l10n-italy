@@ -41,7 +41,13 @@ Key features:
 -  Automatic validation of DOI amounts and available thresholds
 -  Smart warnings when invoice amounts don't match DOI coverage
 -  Backward compatibility with single-declaration workflow
--  Check that the moves only include the DoI tax
+-  Check that the invoice lines with the DoI tax do not include other
+   taxes
+
+To use the DoI tax together with taxes that are not VAT (e.g.
+withholding taxes) in the same invoice line, install the module "ITA -
+Registri IVA" (l10n_it_vat_registries) and set those taxes as excluded
+from the VAT registries.
 
 **Italiano**
 
@@ -56,7 +62,13 @@ Caratteristiche principali:
 -  Validazione automatica degli importi e soglie disponibili
 -  Avvisi intelligenti quando gli importi non corrispondono
 -  Retrocompatibilità con il flusso a dichiarazione singola
--  Verifica che le registrazioni includano soltanto l'imposta per la DI
+-  Verifica che le righe con l'imposta per la DI non includano altre
+   imposte
+
+Per usare l'imposta per la DI insieme a imposte che non sono IVA (ad es.
+ritenute) nella stessa riga di fattura, installare il modulo "ITA -
+Registri IVA" (l10n_it_vat_registries) e impostare tali imposte come
+escluse dai registri IVA.
 
 **Table of contents**
 

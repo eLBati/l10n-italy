@@ -167,16 +167,9 @@ class AccountMove(models.Model):
     def _l10n_it_edi_doi_ext_get_declaration_lines(self, doi_tax):
         """Extract the lines to be counted for DoI."""
         self.ensure_one()
-        if self.l10n_it_edi_doi_id:
-            lines = self.invoice_line_ids.filtered(
-                lambda line,
-                doi_tax=doi_tax: not line._l10n_it_edi_doi_ext_get_validation_message(
-                    doi_tax
-                )
-            )
-        else:
-            lines = self.env["account.move.line"].browse()
-        return lines
+        return self.invoice_line_ids.filtered(
+            lambda line, doi_tax=doi_tax: doi_tax in line.tax_ids
+        )
 
     def _l10n_it_edi_doi_ext_get_lines_messages(self, doi_tax):
         """Check that all the invoice lines are valid for the DoI."""

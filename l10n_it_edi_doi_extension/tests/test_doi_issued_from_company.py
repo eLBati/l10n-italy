@@ -3,7 +3,7 @@
 
 from dateutil.relativedelta import relativedelta
 
-from odoo import exceptions, fields
+from odoo import Command, exceptions, fields
 from odoo.tests import Form
 from odoo.tests.common import TransactionCase
 
@@ -511,3 +511,70 @@ class TestDoiIssuedFromCompany(TransactionCase):
         self.assertNotEqual(previous_used_amount, used_amount)
         self.assertEqual(used_amount, invoice.amount_total)
         self.assertEqual(self.doi_in.state, "active")
+
+    def test_in_invoice_with_lines_without_doi_tax(self):
+        """Lines without the DoI Tax are allowed and not counted for the DoI."""
+        other_tax = self.tax_model.create(
+            {
+                "type_tax_use": "purchase",
+                "name": "22% other tax",
+                "amount": 22,
+            }
+        )
+        invoice = self._create_invoice("14", self.partner, taxes=self.tax, in_type=True)
+        invoice.write(
+            {
+                "invoice_line_ids": [
+                    Command.create(
+                        {
+                            "display_type": "line_section",
+                            "name": "Test section",
+                        }
+                    ),
+                    Command.create(
+                        {
+                            "display_type": "line_note",
+                            "name": "Test note",
+                        }
+                    ),
+                    Command.create(
+                        {
+                            "name": "Test line without Taxes",
+                            "quantity": 1,
+                            "price_unit": 2,
+                            "tax_ids": [Command.clear()],
+                        }
+                    ),
+                    Command.create(
+                        {
+                            "name": "Test line with other Tax",
+                            "quantity": 1,
+                            "price_unit": 100,
+                            "tax_ids": [Command.set(other_tax.ids)],
+                        }
+                    ),
+                ]
+            }
+        )
+        self.assertEqual(invoice.l10n_it_edi_doi_amount, 900.0)
+
+        invoice.action_post()
+        self.assertEqual(invoice.state, "posted")
+        self.assertEqual(self.doi_in.invoiced, 900.0)
+
+    def test_in_invoice_doi_tax_without_declaration(self):
+        """The DoI Tax cannot be used without a Declaration of Intent."""
+        partner = self.env["res.partner"].create(
+            {
+                "name": "Test partner without DoI",
+                "country_id": self.env.ref("base.it").id,
+            }
+        )
+        invoice = self._create_invoice("15", partner, taxes=self.tax, in_type=True)
+        self.assertFalse(invoice.l10n_it_edi_doi_id)
+
+        with self.assertRaises(exceptions.UserError) as ue:
+            invoice.action_post()
+        exc_message = ue.exception.args[0]
+        self.assertIn("there should be a Declaration of Intent selected", exc_message)
+        self.assertIn(self.tax.name, exc_message)
