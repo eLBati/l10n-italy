@@ -2,7 +2,6 @@
 #  License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
 from odoo import api, fields, models
-from odoo.fields import Domain
 
 from .intrastat_statement import format_9, format_x
 
@@ -44,6 +43,7 @@ class IntrastatStatementSaleSection1(models.Model):
     transaction_nature_b_id = fields.Many2one(
         comodel_name="account.intrastat.transaction.nature.b",
         string="Transaction Nature B",
+        domain="[('nature_parent_id', '=', transaction_nature_id)]",
     )
     country_origin_id = fields.Many2one(
         comodel_name="res.country", string="Origin Country"
@@ -66,12 +66,6 @@ class IntrastatStatementSaleSection1(models.Model):
     def change_weight_kg(self):
         if self.statement_id.company_id.intrastat_additional_unit_from == "weight":
             self.additional_units = self.weight_kg
-
-    @api.onchange("transaction_nature_id")
-    def _onchange_transaction_nature_id(self):
-        domain = [("nature_parent_id", "=", self.transaction_nature_id.id)]
-        recs = self.env["account.intrastat.transaction.nature.b"].search(domain)
-        return {"domain": {"transaction_nature_b_id": Domain("id", "in", recs.ids)}}
 
     @api.model
     def _prepare_statement_line(self, inv_intra_line, statement_id=None):

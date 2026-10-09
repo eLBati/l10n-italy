@@ -56,7 +56,6 @@
         model="ir.actions.act_window"
     >
         <field name="name">Export Intrastat File</field>
-        <field name="path">export-intrastat-file</field>
         <field name="res_model">account.intrastat.export.file</field>
         <field name="view_mode">form</field>
         <field name="view_id" ref="wizard_account_intrastat_export_file" />
