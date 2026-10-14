@@ -435,6 +435,9 @@ non esistono in anagrafica tra cui:<ul>
 più fatture</li>
 <li>Ogni <tt class="docutils literal">&lt;FatturaElettronicaBody&gt;</tt> viene convertito in una
 fattura separata mantenendo l’header originale</li>
+<li>La suddivisione avviene su tutti i canali di importazione:
+caricamento dal registro, wizard di importazione, alias email,
+ricezione da SdI (proxy, PEC)</li>
 </ul>
 </li>
 <li>Aggiunge la possibilità di scegliere tra 3 modalità di
@@ -600,6 +603,8 @@ they don’t exist in the address book, including:<ul>
 multiple invoices</li>
 <li>Each <tt class="docutils literal">&lt;FatturaElettronicaBody&gt;</tt> is converted into a separate
 invoice maintaining the original header</li>
+<li>The split happens on every import channel: journal upload,
+import wizard, email alias, reception from SdI (proxy, PEC)</li>
 </ul>
 </li>
 <li>Adds the ability to choose between 3 import modes:<ul>

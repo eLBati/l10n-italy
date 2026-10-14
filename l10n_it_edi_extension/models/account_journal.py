@@ -66,58 +66,24 @@ class AccountJournal(models.Model):
             result = [attachment.raw]
         return result
 
-    def _l10n_it_edi_extension_split_attachments(self, attachment_ids):
-        """
-        Split the attachments that contain multiple invoices
-        in multiple attachments containing one invoice each.
-
-        Do not touch the attachments that do not need splitting.
-
-        Return the IDs of the split attachments and of the unaffected ones.
-        """
-        attachment_model = self.env["ir.attachment"]
-        attachments = attachment_model.browse(attachment_ids)
-        l10n_it_edi_format = next(
-            filter(
-                lambda fmt: fmt["format"] == "l10n_it_edi",
-                attachment_model._get_edi_supported_formats(),
-            )
-        )
-        l10n_it_edi_check = l10n_it_edi_format["check"]
-
-        e_invoice_attachments = attachment_model.browse()
-        split_attachments_values = dict()
-        other_attachments = attachment_model.browse()
-        for attachment in attachments:
-            if l10n_it_edi_check(attachment):
-                contents = self._l10n_it_edi_extension_split_content(attachment)
-                if len(contents) >= 2:
-                    # In this e-invoice there are multiple invoices,
-                    # extract the content of the split e-invoice
-                    # containing only one FatturaElettronicaBody each
-                    split_attachments_values[attachment] = {
-                        "original_attachment": attachment,
-                        "contents": contents,
-                    }
-                else:
-                    e_invoice_attachments |= attachment
-            else:
-                other_attachments |= attachment
-
-        if split_attachments_values:
-            e_invoice_attachments |= attachment_model.create(
-                [
-                    {
-                        "name": f"Partial {attachment.name}",
-                        "raw": content,
-                    }
-                    for attachment, att_data in split_attachments_values.items()
-                    for content in att_data["contents"]
-                ]
-            )
-
-        return (e_invoice_attachments | other_attachments).ids
-
     def _create_document_from_attachment(self, attachment_ids):
-        attachment_ids = self._l10n_it_edi_extension_split_attachments(attachment_ids)
-        return super()._create_document_from_attachment(attachment_ids)
+        """Return also the invoices created from multi-invoice e-invoices.
+
+        `account.move._extend_with_attachments` creates one invoice for each
+        FatturaElettronicaBody after the first one, but core only collects
+        the invoice it created itself for each attachment: gather the other
+        ones, give them the same treatment and return them too.
+        """
+        split_move_ids = []
+        invoices = super(
+            AccountJournal,
+            self.with_context(l10n_it_edi_extension_split_move_ids=split_move_ids),
+        )._create_document_from_attachment(attachment_ids)
+        split_invoices = self.env["account.move"].browse(split_move_ids)
+        for invoice in split_invoices:
+            invoice.with_context(
+                account_predictive_bills_disable_prediction=True,
+                no_new_invoice=True,
+            ).message_post(attachment_ids=invoice.l10n_it_edi_attachment_id.ids)
+            invoice._autopost_bill()
+        return invoices | split_invoices

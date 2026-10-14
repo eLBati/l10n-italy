@@ -641,13 +641,16 @@ class TestIsL10nItEdiImportFile(Common):
         self.assertFalse(attachment._is_l10n_it_edi_import_file())
 
 
-class TestSplitAttachments(Common):
-    """Cover ``account.journal._l10n_it_edi_extension_split_attachments``."""
+class TestJournalUploadSplitting(Common):
+    """Cover ``account.journal._create_document_from_attachment``
+    for e-invoices containing multiple invoices."""
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.purchase_journal = cls.company_data_2["default_journal_purchase"]
+        cls.purchase_journal = cls.company_data_2[
+            "default_journal_purchase"
+        ].with_context(default_move_type="in_invoice")
 
     def _make_attachment(self, filename):
         path = f"l10n_it_edi_extension/tests/import_xmls/{filename}"
@@ -660,69 +663,44 @@ class TestSplitAttachments(Common):
                 }
             )
 
-    def test_multi_body_attachment_is_split(self):
-        """A multi-body e-invoice is replaced by ``N`` ``Partial ...``
-        attachments and the original is not returned.
-        """
+    def test_multi_body_attachment_creates_one_invoice_per_body(self):
+        """All the invoices of a multi-body e-invoice are returned,
+        each one with its own single-body e-invoice attachment."""
+        # FPR03's CessionarioCommittente CodiceFiscale is 03533590174.
+        self.company.l10n_it_codice_fiscale = "03533590174"
         attachment = self._make_attachment("IT01234567890_FPR03.xml")
-        result_ids = self.purchase_journal._l10n_it_edi_extension_split_attachments(
+
+        invoices = self.purchase_journal._create_document_from_attachment(
             attachment.ids
         )
-        result = self.env["ir.attachment"].browse(result_ids)
-        self.assertEqual(len(result), 2)
-        self.assertNotIn(attachment.id, result_ids)
-        self.assertTrue(all(a.name.startswith("Partial ") for a in result))
-        for split in result:
-            xml_tree = split._parse_xml_with_recovery(split.raw)
+
+        self.assertEqual(sorted(invoices.mapped("ref")), ["123", "456"])
+        for invoice in invoices:
+            e_invoice = invoice.l10n_it_edi_attachment_id
+            self.assertTrue(e_invoice, f"Invoice {invoice.ref} has no e-invoice")
+            self.assertEqual(e_invoice.name, "Partial IT01234567890_FPR03.xml")
+            xml_tree = e_invoice._parse_xml_with_recovery(e_invoice.raw)
             self.assertEqual(len(xml_tree.xpath("//FatturaElettronicaBody")), 1)
+            self.assertEqual(
+                xml_tree.xpath("//DatiGeneraliDocumento/Numero")[0].text,
+                invoice.ref,
+            )
+            # The uploaded file is posted on the first invoice by core,
+            # the split one on the invoice created for it
+            self.assertTrue(invoice.message_ids.attachment_ids)
 
     def test_single_body_attachment_is_kept(self):
-        """A single-body e-invoice is returned untouched (no ``Partial``)."""
-        attachment = self._make_attachment("IT02780790107_11004.xml")
-        result_ids = self.purchase_journal._l10n_it_edi_extension_split_attachments(
+        """A single-body e-invoice creates one invoice, without ``Partial``."""
+        attachment = self._make_attachment("IT02780790107_11005.xml")
+
+        invoices = self.purchase_journal._create_document_from_attachment(
             attachment.ids
         )
-        self.assertEqual(result_ids, attachment.ids)
+
+        self.assertRecordValues(invoices, [{"ref": "124"}])
         self.assertFalse(
-            self.env["ir.attachment"].search_count(
-                [("id", "in", result_ids), ("name", "like", "Partial %")]
-            )
+            self.env["ir.attachment"].search_count([("name", "like", "Partial %")])
         )
-
-    def test_non_e_invoice_attachment_is_kept(self):
-        """A non-e-invoice attachment is left untouched in the result."""
-        non_e_invoice = self.env["ir.attachment"].create(
-            {
-                "name": "readme.txt",
-                "raw": b"hello",
-                "type": "binary",
-            }
-        )
-        result_ids = self.purchase_journal._l10n_it_edi_extension_split_attachments(
-            non_e_invoice.ids
-        )
-        self.assertEqual(result_ids, non_e_invoice.ids)
-
-    def test_mixed_attachments(self):
-        """Multi-body, single-body and non-e-invoice attachments are all
-        covered in one call, and the original multi-body one is dropped.
-        """
-        multi = self._make_attachment("IT01234567890_FPR03.xml")
-        single = self._make_attachment("IT02780790107_11004.xml")
-        other = self.env["ir.attachment"].create(
-            {"name": "readme.txt", "raw": b"x", "type": "binary"}
-        )
-        result_ids = self.purchase_journal._l10n_it_edi_extension_split_attachments(
-            (multi + single + other).ids
-        )
-        result = self.env["ir.attachment"].browse(result_ids)
-        # 2 partials + 1 single + 1 other
-        self.assertEqual(len(result), 4)
-        self.assertNotIn(multi.id, result_ids)
-        self.assertIn(single.id, result_ids)
-        self.assertIn(other.id, result_ids)
-        partials = result.filtered(lambda a: a.name.startswith("Partial "))
-        self.assertEqual(len(partials), 2)
 
 
 class TestImportWizardSplitting(Common):
@@ -767,16 +745,16 @@ class TestImportWizardSplitting(Common):
         # Each created move must keep its OWN e-invoice attachment linked:
         # since l10n_it_edi_attachment_file is keyed by (res_id, res_field),
         # a shared attachment would leave every move but the last unlinked.
+        # The first move keeps the uploaded file, the other one its own body.
         for move in moves:
             self.assertTrue(
                 move.l10n_it_edi_attachment_id,
                 f"Move {move.ref} has no linked e-invoice attachment",
             )
-            self.assertEqual(
-                move.l10n_it_edi_attachment_id.name, "IT01234567890_FPR03.xml"
-            )
-        attachments = moves.l10n_it_edi_attachment_id
-        self.assertEqual(len(attachments), 2)
+        self.assertEqual(
+            sorted(moves.l10n_it_edi_attachment_id.mapped("name")),
+            ["IT01234567890_FPR03.xml", "Partial IT01234567890_FPR03.xml"],
+        )
 
     def test_single_body_xml_in_zip_creates_one_invoice(self):
         path = "l10n_it_edi_extension/tests/import_xmls/IT02780790107_11004.xml"
@@ -813,3 +791,110 @@ class TestImportWizardSplitting(Common):
         moves = self._run_wizard("mixed.zip", zip_bytes)
         # must be 3 invoices in total
         self.assertEqual(len(moves), 3)
+
+
+class TestExtendWithAttachments(Common):
+    """Cover ``account.move._extend_with_attachments``: the import entry point
+    used by the channels that do not go through the journal upload
+    (mail alias, SdI proxy download, l10n_it_edi_sdi / l10n_it_edi_pec).
+    """
+
+    def _create_move_with_attachment(self, filename):
+        """Create an empty bill with the e-invoice linked, as
+        l10n_it_edi_sdi and the SdI proxy download do before decoding."""
+        path = f"l10n_it_edi_extension/tests/import_xmls/{filename}"
+        with file_open(path, mode="rb") as fd:
+            raw = fd.read()
+        move = (
+            self.env["account.move"]
+            .with_company(self.company)
+            .create({"move_type": "in_invoice"})
+        )
+        attachment = (
+            self.env["ir.attachment"]
+            .sudo()
+            .with_company(self.company)
+            .create(
+                {
+                    "name": filename,
+                    "raw": raw,
+                    "type": "binary",
+                    "res_model": "account.move",
+                    "res_id": move.id,
+                    "res_field": "l10n_it_edi_attachment_file",
+                }
+            )
+        )
+        return move, attachment
+
+    def test_multi_body_creates_one_invoice_per_body(self):
+        # FPR03's CessionarioCommittente CodiceFiscale is 03533590174.
+        self.company.l10n_it_codice_fiscale = "03533590174"
+        move, attachment = self._create_move_with_attachment("IT01234567890_FPR03.xml")
+        moves_before = self.env["account.move"].search([])
+
+        move._extend_with_attachments(move.l10n_it_edi_attachment_id, new=True)
+
+        created = self.env["account.move"].search([]) - moves_before
+        invoices = (move | created).sorted("ref")
+        # IT01234567890_FPR03.xml has 2 bodies with refs 123 and 456.
+        self.assertEqual(len(invoices), 2)
+        self.assertRecordValues(
+            invoices,
+            [
+                {
+                    "ref": "123",
+                    "amount_untaxed": 25.0,
+                    "move_type": "in_invoice",
+                    "company_id": self.company.id,
+                },
+                {
+                    "ref": "456",
+                    "amount_untaxed": 2000.0,
+                    "move_type": "in_invoice",
+                    "company_id": self.company.id,
+                },
+            ],
+        )
+        # The first invoice keeps the original (whole) e-invoice,
+        # the other one gets its own single-body e-invoice.
+        self.assertEqual(move.l10n_it_edi_attachment_id, attachment)
+        other = invoices - move
+        self.assertTrue(other.l10n_it_edi_attachment_id)
+        self.assertNotEqual(other.l10n_it_edi_attachment_id, attachment)
+        other_tree = other.l10n_it_edi_attachment_id._parse_xml_with_recovery(
+            other.l10n_it_edi_attachment_id.raw
+        )
+        self.assertEqual(len(other_tree.xpath("//FatturaElettronicaBody")), 1)
+        self.assertEqual(
+            other_tree.xpath("//DatiGeneraliDocumento/Numero")[0].text, "456"
+        )
+        self.assertTrue(other.l10n_it_edi_ext_attachment_in_id)
+
+    def test_single_body_is_imported_as_before(self):
+        move, attachment = self._create_move_with_attachment("IT02780790107_11005.xml")
+        moves_before = self.env["account.move"].search([])
+
+        move._extend_with_attachments(move.l10n_it_edi_attachment_id, new=True)
+
+        self.assertFalse(self.env["account.move"].search([]) - moves_before)
+        self.assertEqual(move.ref, "124")
+        self.assertEqual(move.l10n_it_edi_attachment_id, attachment)
+        self.assertFalse(
+            self.env["ir.attachment"].search_count([("name", "like", "Partial %")])
+        )
+
+    def test_multi_body_is_not_merged_into_existing_invoice(self):
+        move, attachment = self._create_move_with_attachment("IT01234567890_FPR03.xml")
+        moves_before = self.env["account.move"].search([])
+
+        result = move._extend_with_attachments(attachment, new=False)
+
+        self.assertFalse(result)
+        self.assertFalse(self.env["account.move"].search([]) - moves_before)
+        self.assertFalse(move.ref)
+        self.assertFalse(move.invoice_line_ids)
+        self.assertIn(
+            "contains 2 invoices",
+            "".join(move.message_ids.mapped("body")),
+        )

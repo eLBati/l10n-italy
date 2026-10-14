@@ -1018,6 +1018,138 @@ class AccountMoveInherit(models.Model):
                 if vals:
                     partner_bank.write(vals)
 
+    def _l10n_it_edi_extension_get_split_contents(self, attachment):
+        """Return the content of one e-invoice per FatturaElettronicaBody of
+        `attachment`, or an empty list if it is not a multi-body e-invoice.
+        """
+        if not attachment._is_l10n_it_edi_import_file():
+            return []
+        contents = self.env["account.journal"]._l10n_it_edi_extension_split_content(
+            attachment
+        )
+        if len(contents) <= 1:
+            return []
+        return contents
+
+    def _l10n_it_edi_extension_create_split_attachments(self, attachment, contents):
+        """Create one ``Partial`` attachment per content split from `attachment`."""
+        return self.env["ir.attachment"].create(
+            [
+                {
+                    "name": f"Partial {attachment.name}",
+                    "raw": content,
+                }
+                for content in contents
+            ]
+        )
+
+    def _l10n_it_edi_extension_prepare_split_move_values(self):
+        """Values of the invoices created for the bodies after the first one."""
+        self.ensure_one()
+        return {
+            "move_type": self.move_type,
+            "journal_id": self.journal_id.id,
+        }
+
+    def _l10n_it_edi_extension_link_split_attachment(self, attachment):
+        """Make `attachment` the e-invoice of this invoice, if it has none yet."""
+        self.ensure_one()
+        if self.l10n_it_edi_attachment_id:
+            # e.g. the original multi-body file linked by the caller
+            return
+        attachment.sudo().write(
+            {
+                "res_model": self._name,
+                "res_id": self.id,
+                "res_field": "l10n_it_edi_attachment_file",
+            }
+        )
+        self.invalidate_recordset(
+            fnames=["l10n_it_edi_attachment_id", "l10n_it_edi_attachment_file"]
+        )
+
+    def _extend_with_attachments(self, attachments, new=False):
+        """Split multi-invoice e-invoices before decoding them.
+
+        This is the entry point shared by every import channel that does not
+        go through `account.journal._create_document_from_attachment`
+        (mail alias, SdI proxy download, l10n_it_edi_sdi/l10n_it_edi_pec...):
+        core decodes the whole file in a single invoice, merging the lines
+        of all the FatturaElettronicaBody.
+
+        When `new` is True, each multi-body attachment is replaced by one
+        attachment per FatturaElettronicaBody: the first one is decoded in
+        this invoice, each other one in a new invoice of the same type and
+        journal. Every split attachment becomes the e-invoice of the invoice
+        it has been decoded in.
+
+        When `new` is False (importing into an existing invoice), a
+        multi-body file is not imported at all, because only one invoice is
+        available: a message is posted instead.
+        """
+        attachment_model = self.env["ir.attachment"]
+        extra_attachments = attachment_model
+        first_attachments = attachment_model
+        if new:
+            kept_attachments = attachment_model
+            for attachment in attachments:
+                contents = self._l10n_it_edi_extension_get_split_contents(attachment)
+                if contents:
+                    partials = self._l10n_it_edi_extension_create_split_attachments(
+                        attachment, contents
+                    )
+                    first_attachments |= partials[0]
+                    extra_attachments |= partials[1:]
+                    kept_attachments |= partials[0]
+                else:
+                    kept_attachments |= attachment
+            attachments = kept_attachments
+        else:
+            for attachment in attachments:
+                contents = self._l10n_it_edi_extension_get_split_contents(attachment)
+                if contents:
+                    attachments -= attachment
+                    self.sudo().message_post(
+                        body=self.env._(
+                            "The e-invoice %(name)s contains %(count)s invoices "
+                            "and was not imported into this document: upload "
+                            "it from the journal or with the e-invoice import "
+                            "wizard to create one invoice per invoice body.",
+                            name=attachment.name,
+                            count=len(contents),
+                        )
+                    )
+
+        attachments_by_invoice = super()._extend_with_attachments(attachments, new=new)
+
+        if not (first_attachments or extra_attachments):
+            return attachments_by_invoice
+
+        attachments_by_invoice = dict(attachments_by_invoice or {})
+        for attachment in first_attachments:
+            for invoice in attachments_by_invoice.get(attachment, self.browse()):
+                invoice._l10n_it_edi_extension_link_split_attachment(attachment)
+        # Let callers that only know the invoice they created
+        # (`account.journal._create_document_from_attachment`)
+        # collect the invoices created here
+        split_move_ids = self.env.context.get("l10n_it_edi_extension_split_move_ids")
+        for attachment in extra_attachments:
+            # Core can only decode one attachment per invoice:
+            # the decoder of l10n_it_edi needs a real invoice as `self`,
+            # so create the invoice ourselves instead of letting
+            # `_extend_with_attachments` do it
+            invoice = self.create(
+                self._l10n_it_edi_extension_prepare_split_move_values()
+            )
+            extra_attachments_by_invoice = invoice._extend_with_attachments(
+                attachment, new=True
+            )
+            attachments_by_invoice.update(extra_attachments_by_invoice or {})
+            invoice._l10n_it_edi_extension_link_split_attachment(attachment)
+            if split_move_ids is not None:
+                split_move_ids.append(invoice.id)
+        return attachments_by_invoice
+
     def _l10n_it_edi_import_invoice(self, invoice, data, is_new):
         invoice = super()._l10n_it_edi_import_invoice(invoice, data, is_new)
         if not invoice:

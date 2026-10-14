@@ -98,6 +98,9 @@ Le funzionalità principali incluse sono:
          più fatture
       -  Ogni ``<FatturaElettronicaBody>`` viene convertito in una
          fattura separata mantenendo l'header originale
+      -  La suddivisione avviene su tutti i canali di importazione:
+         caricamento dal registro, wizard di importazione, alias email,
+         ricezione da SdI (proxy, PEC)
 
    -  Aggiunge la possibilità di scegliere tra 3 modalità di
       importazione:
@@ -269,6 +272,8 @@ The main features included are:
          multiple invoices
       -  Each ``<FatturaElettronicaBody>`` is converted into a separate
          invoice maintaining the original header
+      -  The split happens on every import channel: journal upload,
+         import wizard, email alias, reception from SdI (proxy, PEC)
 
    -  Adds the ability to choose between 3 import modes:
 

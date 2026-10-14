@@ -33,6 +33,7 @@ Le funzionalità principali incluse sono:
    - Gestione delle Fatture Elettroniche Multiple:
      - Supporto per la suddivisione automatica di file XML contenenti più fatture
      - Ogni `<FatturaElettronicaBody>` viene convertito in una fattura separata mantenendo l'header originale
+     - La suddivisione avviene su tutti i canali di importazione: caricamento dal registro, wizard di importazione, alias email, ricezione da SdI (proxy, PEC)
    - Aggiunge la possibilità di scegliere tra 3 modalità di importazione:
      - senza righe
      - una riga per ogni aliquota
@@ -122,6 +123,7 @@ The main features included are:
    - Multiple Electronic Invoice Management:
      - Support for automatic splitting of XML files containing multiple invoices
      - Each `<FatturaElettronicaBody>` is converted into a separate invoice maintaining the original header
+     - The split happens on every import channel: journal upload, import wizard, email alias, reception from SdI (proxy, PEC)
    - Adds the ability to choose between 3 import modes:
      - without lines
      - one line for each VAT rate
