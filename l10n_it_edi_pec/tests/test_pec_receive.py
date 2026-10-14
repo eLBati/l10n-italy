@@ -80,23 +80,33 @@ class TestPecReceive(TestItEdiPecCommon):
         self.assertTrue(attachment)
 
     def test_process_incoming_invoice_base64(self):
-        """Receiving an incoming invoice with base64 attachment creates a new move."""
+        """Receiving an incoming invoice with base64 attachment imports the invoices.
+
+        The attachment is a signed .xml.p7m whose content is base64 text
+        instead of binary DER, and it contains two invoices: both must be
+        imported, not a single bill created empty with the attachment.
+        """
+        # Base64 encoded .p7m files are decoded, and multi-invoice files
+        # are split, by l10n_it_edi_extension
+        extension = self.env["ir.module.module"]._get("l10n_it_edi_extension")
+        if extension.state != "installed":
+            self.skipTest("l10n_it_edi_extension is not installed")
+        # The e-invoice in the test email is addressed to CF 03533590174
+        self.company.write({"l10n_it_codice_fiscale": "03533590174"})
         moves_before = self.env["account.move"].search([])
         self._process_pec_email("POSTA CERTIFICATA_ Invio File 7339338 (base64).txt")
-        moves_after = self.env["account.move"].search([]) - moves_before
-        self.assertTrue(moves_after)
-        attachment = (
-            self.env["ir.attachment"]
-            .sudo()
-            .search(
-                [
-                    ("res_id", "in", moves_after.ids),
-                    ("res_model", "=", "account.move"),
-                    ("res_field", "=", "l10n_it_edi_attachment_file"),
-                ]
-            )
+        moves_after = (self.env["account.move"].search([]) - moves_before).sorted("ref")
+        # The e-invoice contains 2 FatturaElettronicaBody: one bill each
+        self.assertRecordValues(
+            moves_after,
+            [
+                {"move_type": "in_invoice", "ref": "123"},
+                {"move_type": "in_invoice", "ref": "456"},
+            ],
         )
-        self.assertTrue(attachment)
+        for move in moves_after:
+            self.assertTrue(move.invoice_line_ids)
+            self.assertTrue(move.l10n_it_edi_attachment_id)
 
     def test_process_incoming_invoice_duplicate(self):
         """Duplicate incoming invoice is skipped."""
