@@ -50,18 +50,23 @@ class FatturaPAController(Controller):
     @route(
         [
             "/fatturapa/preview/<int:invoice_id>",
+            "/fatturapa/preview/<int:invoice_id>/<string:filetype>",
         ],
         type="http",
         auth="user",
         website=True,
     )
-    def fatturapa_preview(self, invoice_id, **data):
+    def fatturapa_preview(self, invoice_id, filetype="fatturapa", **data):
+        # "fatturapa" is the e-invoice sent to the SdI,
+        # "fatturapa_in" is the imported e-invoice
+        if filetype not in ("fatturapa", "fatturapa_in"):
+            raise request.not_found()
         invoice = request.env["account.move"].browse(invoice_id).exists()
         if not invoice:
             raise request.not_found()
         invoice.check_access("read")
 
-        doc_data = invoice.sudo()._get_invoice_legal_documents("fatturapa")
+        doc_data = invoice.sudo()._get_invoice_legal_documents(filetype)
         if not doc_data:
             raise request.not_found()
 

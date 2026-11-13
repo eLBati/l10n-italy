@@ -37,6 +37,10 @@ class AccountMoveInherit(models.Model):
         readonly=True,
         copy=False,
     )
+    l10n_it_edi_ext_attachment_in_preview_link = fields.Char(
+        string="Imported Electronic Bill Preview link",
+        compute="_compute_l10n_it_edi_ext_attachment_in_preview_link",
+    )
     l10n_it_edi_line_ids = fields.One2many(
         "l10n_it_edi.line",
         "invoice_id",
@@ -140,18 +144,25 @@ class AccountMoveInherit(models.Model):
     # Computes
     # -------------------------------------------------------------------------
 
-    @api.depends("l10n_it_edi_attachment_file", "l10n_it_edi_ext_attachment_in_id")
+    @api.depends("l10n_it_edi_attachment_file")
     def _compute_l10n_it_edi_attachment_preview_link(self):
         for move in self:
-            if (
-                move.l10n_it_edi_attachment_file
-                or move.l10n_it_edi_ext_attachment_in_id
-            ):
+            if move.l10n_it_edi_attachment_file:
                 move.l10n_it_edi_attachment_preview_link = (
                     move.get_base_url() + f"/fatturapa/preview/{move.id}"
                 )
             else:
                 move.l10n_it_edi_attachment_preview_link = ""
+
+    @api.depends("l10n_it_edi_ext_attachment_in_id")
+    def _compute_l10n_it_edi_ext_attachment_in_preview_link(self):
+        for move in self:
+            if move.l10n_it_edi_ext_attachment_in_id:
+                move.l10n_it_edi_ext_attachment_in_preview_link = (
+                    move.get_base_url() + f"/fatturapa/preview/{move.id}/fatturapa_in"
+                )
+            else:
+                move.l10n_it_edi_ext_attachment_in_preview_link = ""
 
     @api.depends(
         "l10n_it_edi_amount_untaxed", "l10n_it_edi_amount_tax", "l10n_it_edi_rounding"
@@ -226,10 +237,21 @@ class AccountMoveInherit(models.Model):
             "target": "new",
         }
 
-    def _get_invoice_legal_documents(self, filetype, allow_fallback=False):
+    def action_l10n_it_edi_ext_attachment_in_preview(self):
         self.ensure_one()
 
-        if filetype == "fatturapa":
+        return {
+            "type": "ir.actions.act_url",
+            "name": self.env._("Show preview"),
+            "url": self.l10n_it_edi_ext_attachment_in_preview_link,
+            "target": "new",
+        }
+
+    def _get_invoice_legal_documents(self, filetype, allow_fallback=False):
+        # Keep core's "fatturapa" type for the e-invoice sent to the SdI
+        self.ensure_one()
+
+        if filetype == "fatturapa_in":
             if fatturapa_attachment := self.l10n_it_edi_ext_attachment_in_id:
                 return {
                     "filename": fatturapa_attachment.name,

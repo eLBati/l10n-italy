@@ -409,6 +409,62 @@ class TestFatturaPAXMLValidation(Common):
 
         # Assert
         self.assertTrue(invoice.l10n_it_edi_ext_attachment_in_id)
+        self.assertTrue(
+            invoice.l10n_it_edi_ext_attachment_in_preview_link.endswith(
+                f"/fatturapa/preview/{invoice.id}/fatturapa_in"
+            )
+        )
+        self.assertFalse(invoice.l10n_it_edi_attachment_preview_link)
+
+    def test_legal_documents_imported_and_sent(self):
+        """An imported bill sent as self-invoice keeps both e-invoices:
+        the sent one is the FatturaPA legal document,
+        the imported one has its own type."""
+        # Arrange
+        bill = self._assert_import_invoice(
+            "IT02780790107_11004.xml",
+            [
+                {},
+            ],
+        )
+        imported_attachment = bill.l10n_it_edi_ext_attachment_in_id
+        sent_content = b"<FatturaElettronica/>"
+
+        # Act
+        bill.write(
+            {
+                "l10n_it_edi_attachment_name": "IT01234567890_00001.xml",
+                "l10n_it_edi_attachment_file": base64.b64encode(sent_content),
+            }
+        )
+
+        # Assert
+        self.assertEqual(
+            bill._get_invoice_legal_documents("fatturapa"),
+            {
+                "filename": "IT01234567890_00001.xml",
+                "filetype": "xml",
+                "content": sent_content,
+            },
+        )
+        self.assertEqual(
+            bill._get_invoice_legal_documents("fatturapa_in"),
+            {
+                "filename": imported_attachment.name,
+                "filetype": "xml",
+                "content": imported_attachment.raw,
+            },
+        )
+        self.assertTrue(
+            bill.l10n_it_edi_attachment_preview_link.endswith(
+                f"/fatturapa/preview/{bill.id}"
+            )
+        )
+        self.assertTrue(
+            bill.l10n_it_edi_ext_attachment_in_preview_link.endswith(
+                f"/fatturapa/preview/{bill.id}/fatturapa_in"
+            )
+        )
 
     def test_imported_attachment(self):
         """The imported e-invoice is linked to the bill without duplicating it,
@@ -777,7 +833,7 @@ class TestFatturaPAPreview(Common, HttpCase):
                 {},
             ],
         )
-        preview_url = f"/fatturapa/preview/{invoice.id}"
+        preview_url = f"/fatturapa/preview/{invoice.id}/fatturapa_in"
         other_company = self.company_data["company"]
         other_company_user = new_test_user(
             self.env,
@@ -811,7 +867,7 @@ class TestFatturaPAPreview(Common, HttpCase):
             ],
         )
         invoice.l10n_it_edi_ext_attachment_in_id.raw = b"not an e-invoice"
-        preview_url = f"/fatturapa/preview/{invoice.id}"
+        preview_url = f"/fatturapa/preview/{invoice.id}/fatturapa_in"
 
         # Act
         self.authenticate(self.env.user.login, self.env.user.login)
@@ -820,3 +876,25 @@ class TestFatturaPAPreview(Common, HttpCase):
         # Assert
         self.assertEqual(response.status_code, 422)
         self.assertIn("cannot be decoded", response.text)
+
+    @mute_logger("odoo.http")
+    def test_preview_missing_document(self):
+        """The preview of a missing e-invoice, or of an unknown type, is not found."""
+        # Arrange
+        invoice = self._assert_import_invoice(
+            "IT02780790107_11004.xml",
+            [
+                {},
+            ],
+        )
+        # pre-condition
+        self.assertFalse(invoice.l10n_it_edi_attachment_file)
+
+        # Act
+        self.authenticate(self.env.user.login, self.env.user.login)
+        sent_response = self.url_open(f"/fatturapa/preview/{invoice.id}")
+        unknown_response = self.url_open(f"/fatturapa/preview/{invoice.id}/pdf")
+
+        # Assert
+        self.assertEqual(sent_response.status_code, 404)
+        self.assertEqual(unknown_response.status_code, 404)
