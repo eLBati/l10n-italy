@@ -884,10 +884,10 @@ class AccountMoveInherit(models.Model):
             self.amount_untaxed - self.l10n_it_edi_rounding,
             self.l10n_it_edi_amount_untaxed,
             self.env._(
-                "Untaxed amount (%(amount_untaxed)s}) "
-                "minus rounding (%(rounding)s}) "
+                "Untaxed amount (%(amount_untaxed)s) "
+                "minus rounding (%(rounding)s) "
                 "does not match with "
-                "e-invoice untaxed amount %(edi_amount_untaxed)s)",
+                "e-invoice untaxed amount (%(edi_amount_untaxed)s)",
                 amount_untaxed=self.amount_untaxed,
                 rounding=self.l10n_it_edi_rounding,
                 edi_amount_untaxed=self.l10n_it_edi_amount_untaxed,
@@ -899,7 +899,7 @@ class AccountMoveInherit(models.Model):
             self.amount_tax,
             self.l10n_it_edi_amount_tax,
             self.env._(
-                "Taxed amount (%(tax_amount)s}) "
+                "Taxed amount (%(tax_amount)s) "
                 "does not match with "
                 "e-invoice taxed amount (%(edi_tax_amount)s)",
                 tax_amount=self.amount_tax,
