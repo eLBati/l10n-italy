@@ -381,7 +381,7 @@ class AccountMoveInherit(models.Model):
             return base64.b64decode(content)
         except binascii.Error:
             _logger.info(f"The p7m file '{name}' is not base64 encoded")
-            return ""
+            return b""
 
     def _parse_xml_with_recovery(self, content, name=None):
         xml_tree = super()._parse_xml_with_recovery(content, name=name)
@@ -1065,7 +1065,7 @@ class AccountMoveInherit(models.Model):
 
         Used for roles core does not handle (e.g. ``RappresentanteFiscale``).
         Follows the path core uses for buyer/seller: match by Italian
-        Codice Fiscale, then delegate to ``_l10n_it_edi_import_partner``
+        Codice Fiscale, then delegate to ``_import_partner``
         which calls ``_retrieve_partner`` and creates a new partner when
         nothing matches. ``_l10n_it_edi_update_partner`` fills the
         FatturaPA extras (state_id, EORI, Albo*, firstname/lastname)
@@ -1260,8 +1260,7 @@ class AccountMoveInherit(models.Model):
             invoice.l10n_it_edi_tax_representative_id = tax_representative
 
         if (
-            invoice
-            and not invoice.is_sale_document()
+            not invoice.is_sale_document()
             and (attachment_name := data.get("name", ""))
             and (attachment_raw := data.get("raw", b""))
         ):
