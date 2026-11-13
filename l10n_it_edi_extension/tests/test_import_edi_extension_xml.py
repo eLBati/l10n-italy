@@ -799,3 +799,24 @@ class TestFatturaPAPreview(Common, HttpCase):
         self.assertEqual(other_company_response.status_code, 403)
         self.assertEqual(user_response.status_code, 200)
         self.assertEqual(user_response.headers["Content-Type"], "application/pdf")
+
+    @mute_logger("odoo.http")
+    def test_preview_undecodable(self):
+        """The preview of an e-invoice that cannot be decoded shows an error."""
+        # Arrange
+        invoice = self._assert_import_invoice(
+            "IT02780790107_11004.xml",
+            [
+                {},
+            ],
+        )
+        invoice.l10n_it_edi_ext_attachment_in_id.raw = b"not an e-invoice"
+        preview_url = f"/fatturapa/preview/{invoice.id}"
+
+        # Act
+        self.authenticate(self.env.user.login, self.env.user.login)
+        response = self.url_open(preview_url)
+
+        # Assert
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("cannot be decoded", response.text)
