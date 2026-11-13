@@ -12,7 +12,7 @@
     "license": "AGPL-3",
     "external_dependencies": {
         "python": [
-            "codicefiscale",
+            "python-codicefiscale",
         ],
     },
     "depends": [
