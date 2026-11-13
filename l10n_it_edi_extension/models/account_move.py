@@ -1090,17 +1090,31 @@ class AccountMoveInherit(models.Model):
                 limit=1,
             )
         if not partner:
-            partner, _logs = self.env["account.edi.common"]._import_partner(
+            # Like core does for buyer and seller,
+            # prefix the VAT with the country code
+            # and pass the address in postal_address
+            country_code = (
+                self.env["res.country"].browse(partner_values.get("country_id")).code
+            )
+            vat = partner_values.get("vat")
+            if vat and country_code:
+                vat = f"{country_code}{vat}"
+            partner, logs = self.env["account.edi.common"]._import_partner(
                 company_id=company,
                 name=partner_values.get("name"),
                 phone=partner_values.get("phone"),
                 email=partner_values.get("email"),
-                vat=partner_values.get("vat"),
-                street=partner_values.get("street"),
-                city=partner_values.get("city"),
-                zip_code=partner_values.get("zip"),
+                vat=vat,
+                postal_address={
+                    "country_code": country_code,
+                    "street": partner_values.get("street"),
+                    "city": partner_values.get("city"),
+                    "zip": partner_values.get("zip"),
+                },
             )
-            if partner and codice_fiscale and not partner.l10n_it_codice_fiscale:
+            # Like core, set the Codice Fiscale only on created partners:
+            # core logs a message when it creates the partner
+            if partner and logs and codice_fiscale:
                 partner.l10n_it_codice_fiscale = codice_fiscale
             if partner and not partner.country_id and partner_values.get("country_id"):
                 partner.country_id = partner_values["country_id"]

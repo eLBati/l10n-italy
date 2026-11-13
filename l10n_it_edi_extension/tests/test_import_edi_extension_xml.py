@@ -146,6 +146,46 @@ class TestFatturaPAXMLValidation(Common):
                             f"does not match",
                         )
 
+    def test_tax_representative_create(self):
+        """The tax representative is created with country and prefixed VAT."""
+        # Act
+        invoice = self._assert_import_invoice("IT02780790107_11004.xml", [{}])
+
+        # Assert
+        self.assertRecordValues(
+            invoice.l10n_it_edi_tax_representative_id,
+            [
+                {
+                    "name": "Rappresentante fiscale",
+                    "vat": "IT03339130126",
+                    "country_id": self.env.ref("base.it").id,
+                    "l10n_it_codice_fiscale": "03339130126",
+                }
+            ],
+        )
+
+    def test_tax_representative_existing(self):
+        """An existing partner with the same VAT is the tax representative,
+        and its Codice Fiscale is not changed."""
+        # Arrange
+        partner = self.env["res.partner"].create(
+            {
+                "name": "Rappresentante fiscale",
+                "vat": "IT03339130126",
+            }
+        )
+        partner.l10n_it_codice_fiscale = False
+        # pre-condition: the Codice Fiscale of the file is not valid
+        # for this partner, that is not a company
+        self.assertFalse(partner.is_company)
+
+        # Act
+        invoice = self._assert_import_invoice("IT02780790107_11004.xml", [{}])
+
+        # Assert
+        self.assertEqual(invoice.l10n_it_edi_tax_representative_id, partner)
+        self.assertFalse(partner.l10n_it_codice_fiscale)
+
     def test_multiple_invoices(self):
         """If an e-invoice contains multiple invoices, they are all created."""
         # Arrange
