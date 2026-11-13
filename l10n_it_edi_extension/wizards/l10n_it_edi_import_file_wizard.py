@@ -38,17 +38,29 @@ class EInvoiceImportFileWizard(models.TransientModel):
                         attachment_model = (
                             self.env["ir.attachment"].sudo().with_company(company)
                         )
-                        existing_attachment = attachment_model.search_count(
-                            [
-                                ("name", "=", filename),
-                                ("res_model", "=", "account.move"),
-                                ("res_field", "=", "l10n_it_edi_attachment_file"),
-                                ("company_id", "=", company.id),
-                            ],
-                            limit=1,
+                        # The e-invoice of the move is
+                        # in l10n_it_edi_attachment_file
+                        # for customer invoices and bills received from the SdI,
+                        # in l10n_it_edi_ext_attachment_in_id
+                        # for other imported bills
+                        existing_move = (
+                            self.env["account.move"]
+                            .sudo()
+                            .search_count(
+                                Domain("company_id", "=", company.id)
+                                & (
+                                    Domain("l10n_it_edi_attachment_name", "=", filename)
+                                    | Domain(
+                                        "l10n_it_edi_ext_attachment_in_id.name",
+                                        "=",
+                                        filename,
+                                    )
+                                ),
+                                limit=1,
+                            )
                         )
 
-                        if existing_attachment:
+                        if existing_move:
                             message = self.env._(
                                 "E-invoice already exists: %s", filename
                             )

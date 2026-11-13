@@ -9,7 +9,7 @@ from datetime import date
 from unittest.mock import patch
 
 from odoo import Command, fields, tools
-from odoo.exceptions import MissingError
+from odoo.exceptions import MissingError, UserError
 from odoo.tests import HttpCase, new_test_user
 from odoo.tools import file_open, mute_logger
 
@@ -713,6 +713,36 @@ class TestImportWizardSplitting(Common):
         moves = self._run_wizard("mixed.zip", zip_bytes)
         # must be 3 invoices in total
         self.assertEqual(len(moves), 3)
+
+    @mute_logger(
+        "odoo.addons.l10n_it_edi_extension.wizards.l10n_it_edi_import_file_wizard"
+    )
+    def test_import_zip_twice_bill(self):
+        """A vendor bill already imported from a zip is not imported again."""
+        path = "l10n_it_edi_extension/tests/import_xmls/IT02780790107_11004.xml"
+        with file_open(path, mode="rb") as fd:
+            xml_bytes = fd.read()
+        zip_bytes = self._build_zip({"IT02780790107_11004.xml": xml_bytes})
+        bill = self._run_wizard("bill.zip", zip_bytes)
+        # pre-condition
+        self.assertTrue(bill.is_purchase_document())
+
+        with self.assertRaisesRegex(UserError, "IT02780790107_11004.xml"):
+            self._run_wizard("bill.zip", zip_bytes)
+
+    @mute_logger(
+        "odoo.addons.l10n_it_edi_extension.wizards.l10n_it_edi_import_file_wizard"
+    )
+    def test_import_zip_twice_invoice(self):
+        """A customer invoice already imported from a zip is not imported again."""
+        self.company.vat = "01654010345"
+        self.company.l10n_it_codice_fiscale = "01654010345"
+        invoice = self._import_moves_from_zip("INV_2026_00005.zip")
+        # pre-condition
+        self.assertTrue(invoice.is_sale_document())
+
+        with self.assertRaisesRegex(UserError, invoice.l10n_it_edi_attachment_name):
+            self._import_moves_from_zip("INV_2026_00005.zip")
 
 
 class TestFatturaPAPreview(Common, HttpCase):
