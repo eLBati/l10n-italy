@@ -626,7 +626,7 @@ class AccountMoveInherit(models.Model):
         if default_product_taxes := partner_default_product.supplier_taxes_id:
             product_extra_domain = Domain.AND(
                 [
-                    extra_domain,
+                    extra_domain or [],
                     [
                         ("id", "in", default_product_taxes.ids),
                     ],
