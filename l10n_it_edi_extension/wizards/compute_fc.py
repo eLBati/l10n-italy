@@ -3,7 +3,7 @@
 
 import logging
 
-from codicefiscale import build
+from codicefiscale import codicefiscale
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -152,12 +152,12 @@ class WizardComputeFc(models.TransientModel):
             )
             if not nat_code:
                 raise UserError(self.env._("National code is missing"))
-            c_f = build(
-                f.fiscalcode_surname,
-                f.fiscalcode_firstname,
-                f.birth_date,
-                f.sex,
-                nat_code,
+            c_f = codicefiscale.encode(
+                lastname=f.fiscalcode_surname,
+                firstname=f.fiscalcode_firstname,
+                gender=f.sex,
+                birthdate=f.birth_date,
+                birthplace=nat_code,
             )
             if partner.l10n_it_codice_fiscale and partner.l10n_it_codice_fiscale != c_f:
                 raise UserError(
