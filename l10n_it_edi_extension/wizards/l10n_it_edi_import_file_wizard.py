@@ -99,18 +99,20 @@ class EInvoiceImportFileWizard(models.TransientModel):
                             .with_company(company)
                             .create([{}] * len(files_data))
                         )
-                        for record, file_data in zip(records, files_data, strict=False):
-                            attachment = file_data["attachment"]
+                        for record, file_data in zip(records, files_data, strict=True):
                             record.message_post(
                                 body=self.env._(
                                     "This invoice was imported from .zip file"
                                 ),
-                                attachment_ids=attachment.ids,
+                                attachment_ids=file_data["attachment"].ids,
                             )
-
-                        # Extend created moves with the related attachments.
-                        for record, file_data in zip(records, files_data, strict=False):
+                            # Extend created moves with the related attachments.
                             record._extend_with_attachments([file_data], new=True)
+                            # Bills get their e-invoice
+                            # in l10n_it_edi_ext_attachment_in_id
+                            # while importing (see _l10n_it_edi_import_invoice),
+                            # customer invoices get it in the field of core
+                            # so that they are like the invoices sent to the SdI
                             if record.is_sale_document():
                                 record.l10n_it_edi_attachment_name = file_data.get(
                                     "name", ""
