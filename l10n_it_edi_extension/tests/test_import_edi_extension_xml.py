@@ -438,6 +438,27 @@ class TestFatturaPAXMLValidation(Common):
         )
         self.assertFalse(invoice_copy.l10n_it_edi_ext_attachment_in_id)
 
+    def test_validation_message_imported_bill(self):
+        """Imported bills warn when their amounts differ from the e-invoice."""
+        # Arrange
+        bill = self._assert_import_invoice(
+            "IT02780790107_11004.xml",
+            [
+                {},
+            ],
+        )
+        untaxed_message = "does not match with e-invoice untaxed amount"
+        # pre-condition
+        self.assertFalse(bill.l10n_it_edi_attachment_file)
+        self.assertTrue(bill.l10n_it_edi_ext_attachment_in_id)
+        self.assertNotIn(untaxed_message, bill.l10n_it_edi_validation_message or "")
+
+        # Act
+        bill.invoice_line_ids[0].price_unit += 1
+
+        # Assert
+        self.assertIn(untaxed_message, bill.l10n_it_edi_validation_message)
+
     def test_partner_default_product(self):
         """If the partner has a default product and no product is found,
         the partner's default product is used."""

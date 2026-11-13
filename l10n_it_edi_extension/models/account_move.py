@@ -181,6 +181,7 @@ class AccountMoveInherit(models.Model):
         "amount_tax",
         "amount_total",
         "l10n_it_edi_attachment_file",
+        "l10n_it_edi_ext_attachment_in_id",
         "l10n_it_edi_amount_untaxed",
         "l10n_it_edi_amount_tax",
         "l10n_it_edi_rounding",
@@ -191,7 +192,9 @@ class AccountMoveInherit(models.Model):
         invoices_to_check = self.filtered(
             lambda inv: inv._l10n_it_edi_is_to_validate()
             and inv.state in ["draft", "posted"]
-            and inv.l10n_it_edi_attachment_file
+            and (
+                inv.l10n_it_edi_attachment_file or inv.l10n_it_edi_ext_attachment_in_id
+            )
         )
         for invoice in invoices_to_check:
             error_messages = list()
