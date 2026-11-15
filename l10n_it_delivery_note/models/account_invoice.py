@@ -11,7 +11,11 @@ from collections import defaultdict
 from odoo import api, fields, models
 from odoo.tools import config
 
-from .stock_delivery_note import DATE_FORMAT
+from .stock_delivery_note import (
+    DATE_FORMAT,
+    DOMAIN_DELIVERY_NOTE_STATES,
+    DOMAIN_INVOICE_STATUSES,
+)
 
 
 class AccountInvoice(models.Model):
@@ -165,9 +169,7 @@ class AccountInvoice(models.Model):
         inv_dnls = self.mapped("delivery_note_ids").mapped("line_ids")
         dnls_to_unlink = all_dnls & inv_dnls
         res = super().unlink()
-        dnls_to_unlink.mapped("delivery_note_id")._compute_invoice_status()
-        for dn in dnls_to_unlink.mapped("delivery_note_id"):
-            dn.state = "confirm"
+        self._reset_delivery_notes_invoice_status(dnls_to_unlink)
         return res
 
     def button_cancel(self):  # pylint: disable=missing-return
@@ -176,13 +178,18 @@ class AccountInvoice(models.Model):
             self.invoice_line_ids.sale_line_ids.delivery_note_line_ids
             | self.delivery_note_ids.line_ids
         )
-        dn_lines.delivery_note_id._compute_invoice_status()
-        dn_lines.delivery_note_id.state = "confirm"
+        self._reset_delivery_notes_invoice_status(dn_lines)
 
-    def _reverse_moves(self, default_values_list=None, cancel=False):
-        return super(
-            AccountInvoice, self.with_context(switching_dn_invoice=True)
-        )._reverse_moves(default_values_list=default_values_list, cancel=cancel)
+    @api.model
+    def _reset_delivery_notes_invoice_status(self, dn_lines):
+        """Allow to invoice again `dn_lines` that are not invoiced anymore."""
+        dn_lines.sync_invoice_status()
+        delivery_notes = dn_lines.delivery_note_id
+        delivery_notes._compute_invoice_status()
+        delivery_notes.filtered(
+            lambda dn: dn.state != DOMAIN_DELIVERY_NOTE_STATES[0]
+            and dn.invoice_status != DOMAIN_INVOICE_STATUSES[2]
+        ).state = DOMAIN_DELIVERY_NOTE_STATES[1]
 
     def _l10n_it_edi_invoice_is_direct(self):
         """An invoice is direct if ddt are all done the same day as the invoice."""

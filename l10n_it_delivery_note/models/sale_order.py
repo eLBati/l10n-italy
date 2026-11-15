@@ -69,7 +69,11 @@ class SaleOrder(models.Model):
             order.delivery_note_count = len(delivery_notes)
 
     def _assign_delivery_notes_invoices(self, invoice_ids):
-        invoices = self.env["account.move"].browse(invoice_ids)
+        invoices = (
+            self.env["account.move"]
+            .browse(invoice_ids)
+            .filtered(lambda invoice: invoice.state != "cancel")
+        )
         for order_line in self.order_line:
             for dn_line in order_line.delivery_note_line_ids:
                 if dn_line.delivery_note_id.state == DOMAIN_DELIVERY_NOTE_STATES[0]:
@@ -78,9 +82,9 @@ class SaleOrder(models.Model):
                     dn_line.invoice_status = DOMAIN_INVOICE_STATUSES[0]
                     continue
 
-                invoiced_dn_lines = (
-                    dn_line.sale_line_id.invoice_lines.delivery_note_line_id
-                )
+                invoiced_dn_lines = dn_line.sale_line_id.invoice_lines.filtered(
+                    lambda inv_line: inv_line.parent_state != "cancel"
+                ).delivery_note_line_id
                 for inv_line in invoices.invoice_line_ids:
                     if dn_line.sale_line_id in inv_line.sale_line_ids:
                         if not inv_line.delivery_note_line_id:

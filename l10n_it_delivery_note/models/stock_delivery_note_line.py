@@ -8,6 +8,8 @@ from collections import defaultdict
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
+from .stock_delivery_note import DOMAIN_DELIVERY_NOTE_STATES
+
 DATE_FORMAT = "%d/%m/%Y"
 DATETIME_FORMAT = "%d/%m/%Y %H:%M:%S"
 
@@ -236,3 +238,29 @@ class StockDeliveryNoteLine(models.Model):
             )
 
         return super().write(vals)
+
+    def sync_invoice_status(self):
+        """Compute the invoice status from the linked invoice lines.
+
+        A line is invoiced when it is linked to an invoice line
+        that is not cancelled.
+        """
+        lines = self.filtered(lambda note_line: note_line.sale_line_id)
+        invoiced_lines = (
+            self.env["account.move.line"]
+            .search(
+                [
+                    ("delivery_note_line_id", "in", lines.ids),
+                    ("parent_state", "!=", "cancel"),
+                ]
+            )
+            .delivery_note_line_id
+        )
+        for line in lines:
+            if line.delivery_note_id.state == DOMAIN_DELIVERY_NOTE_STATES[0]:
+                invoice_status = DOMAIN_INVOICE_STATUSES[0]
+            elif line in invoiced_lines:
+                invoice_status = DOMAIN_INVOICE_STATUSES[2]
+            else:
+                invoice_status = DOMAIN_INVOICE_STATUSES[1]
+            line.invoice_status = invoice_status

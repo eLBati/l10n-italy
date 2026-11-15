@@ -68,6 +68,9 @@ class SaleOrderLine(models.Model):
         )
 
     def _get_invoiceable_dn_lines(self):
+        if self.product_id.invoice_policy != "delivery":
+            # The invoiced quantity does not depend on the deliveries
+            return self.env["stock.delivery.note.line"].browse()
         invoiceable_dn_lines = self.delivery_note_line_ids.filtered(
             lambda dn_line: dn_line.is_invoiceable
             and self.product_id == dn_line.product_id

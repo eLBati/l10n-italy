@@ -1624,3 +1624,126 @@ class StockDeliveryNoteInvoicingTest(StockDeliveryNoteCommon):
                 },
             ],
         )
+
+    def _deliver_with_delivery_note(self, picking, quantity):
+        """Deliver `quantity` of `picking` and create its confirmed Delivery Note."""
+        picking.move_ids.quantity = quantity
+        res_dict = picking.button_validate()
+        if isinstance(res_dict, dict) and res_dict.get("res_model"):
+            # Create backorder
+            Form(
+                self.env[res_dict["res_model"]].with_context(**res_dict["context"])
+            ).save().process()
+        res_dict = picking.action_delivery_note_create()
+        Form(
+            self.env[res_dict["res_model"]].with_context(**res_dict["context"])
+        ).save().confirm()
+        delivery_note = picking.delivery_note_id
+        delivery_note.action_confirm()
+        return delivery_note
+
+    def test_unlink_invoice_invoice_again(self):
+        """When the invoice is deleted,
+        the Delivery Note can be invoiced again."""
+        sale_order = self.create_sales_order([self.right_corner_desk_line])
+        sale_order.action_confirm()
+        delivery_note = self._deliver_with_delivery_note(sale_order.picking_ids, 2)
+        sale_order._create_invoices()
+        self.assertEqual(delivery_note.invoice_status, "invoiced")
+        self.assertEqual(delivery_note.state, "invoiced")
+
+        sale_order.invoice_ids.unlink()
+        self.assertEqual(delivery_note.line_ids.invoice_status, "to invoice")
+        self.assertEqual(delivery_note.invoice_status, "to invoice")
+        self.assertEqual(delivery_note.state, "confirm")
+
+        delivery_note.action_invoice()
+        invoice = sale_order.invoice_ids
+        self.assertEqual(invoice.invoice_line_ids.delivery_note_id, delivery_note)
+        self.assertEqual(delivery_note.invoice_status, "invoiced")
+
+    def test_cancel_invoice_invoice_again(self):
+        """When the invoice is cancelled,
+        the Delivery Note can be invoiced again,
+        even after being reset to draft and confirmed."""
+        sale_order = self.create_sales_order([self.right_corner_desk_line])
+        sale_order.action_confirm()
+        delivery_note = self._deliver_with_delivery_note(sale_order.picking_ids, 2)
+        delivery_note.action_invoice()
+        invoice = sale_order.invoice_ids
+        self.assertEqual(delivery_note.invoice_status, "invoiced")
+
+        invoice.button_cancel()
+        self.assertEqual(delivery_note.invoice_status, "to invoice")
+        self.assertEqual(delivery_note.state, "confirm")
+
+        delivery_note.action_draft()
+        delivery_note.action_confirm()
+        self.assertEqual(delivery_note.invoice_status, "to invoice")
+
+        delivery_note.action_invoice()
+        new_invoice = sale_order.invoice_ids - invoice
+        self.assertEqual(new_invoice.invoice_line_ids.delivery_note_id, delivery_note)
+        self.assertEqual(delivery_note.invoice_status, "invoiced")
+
+    def test_cancel_invoice_other_dn_still_invoiced(self):
+        """When an invoice is cancelled, the Delivery Notes
+        of the same order line invoiced by other invoices are still invoiced."""
+        sale_order = self.create_sales_order([self.right_corner_desk_line])  # 2
+        sale_order.action_confirm()
+        picking = sale_order.picking_ids
+        delivery_note = self._deliver_with_delivery_note(picking, 1)
+        back_delivery_note = self._deliver_with_delivery_note(picking.backorder_ids, 1)
+        delivery_note.action_invoice()
+        invoice = sale_order.invoice_ids
+        back_delivery_note.action_invoice()
+        back_invoice = sale_order.invoice_ids - invoice
+
+        back_invoice.button_cancel()
+        self.assertEqual(delivery_note.invoice_status, "invoiced")
+        self.assertEqual(delivery_note.state, "invoiced")
+        self.assertEqual(back_delivery_note.invoice_status, "to invoice")
+        self.assertEqual(back_delivery_note.state, "confirm")
+
+    def test_reversal_no_delivery_note(self):
+        """Reversing an invoice does not link the Delivery Note to the Credit Note."""
+        sale_order = self.create_sales_order([self.right_corner_desk_line])
+        sale_order.action_confirm()
+        delivery_note = self._deliver_with_delivery_note(sale_order.picking_ids, 2)
+        sale_order._create_invoices()
+        invoice = sale_order.invoice_ids
+        invoice.action_post()
+
+        self.env["account.move.reversal"].with_context(
+            active_model=invoice._name,
+            active_ids=invoice.ids,
+        ).create(
+            {
+                "reason": "Test",
+                "journal_id": invoice.journal_id.id,
+            }
+        ).refund_moves()
+        credit_note = invoice.reversal_move_ids
+        self.assertEqual(credit_note.move_type, "out_refund")
+        self.assertFalse(credit_note.invoice_line_ids.delivery_note_line_id)
+        self.assertFalse(credit_note.delivery_note_ids)
+        self.assertEqual(delivery_note.invoice_ids, invoice)
+
+    def test_invoice_policy_order(self):
+        """Products invoiced on ordered quantities
+        are fully invoiced, even if they are partially delivered."""
+        product = self.env["product.product"].browse(
+            self.right_corner_desk_line[2]["product_id"]
+        )
+        product.invoice_policy = "order"
+        sale_order = self.create_sales_order([self.right_corner_desk_line])  # 2
+        sale_order.action_confirm()
+        delivery_note = self._deliver_with_delivery_note(sale_order.picking_ids, 1)
+
+        sale_order._create_invoices()
+        invoice = sale_order.invoice_ids
+        self.assertEqual(
+            invoice.invoice_line_ids.filtered("product_id").mapped("quantity"), [2]
+        )
+        self.assertEqual(sale_order.order_line.qty_to_invoice, 0)
+        self.assertEqual(delivery_note.invoice_status, "invoiced")
