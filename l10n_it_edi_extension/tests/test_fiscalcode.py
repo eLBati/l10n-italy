@@ -1,7 +1,7 @@
 # Copyright 2024 Simone Rubino - Aion Tech
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from codicefiscale import isvalid
+from codicefiscale import codicefiscale
 
 from odoo.exceptions import UserError, ValidationError
 from odoo.tests import TransactionCase
@@ -101,7 +101,7 @@ class TestFiscalCode(TransactionCase):
             }
         )
         # pre-condition
-        self.assertFalse(isvalid(wrong_person_fiscalcode))
+        self.assertFalse(codicefiscale.is_valid(wrong_person_fiscalcode))
 
         with self.assertRaises(UserError) as ue:
             partner.l10n_it_codice_fiscale = wrong_person_fiscalcode
@@ -126,7 +126,7 @@ class TestFiscalCode(TransactionCase):
         )
         partner.l10n_it_codice_fiscale = company_vat
         # pre-condition
-        self.assertFalse(isvalid(partner.l10n_it_codice_fiscale))
+        self.assertFalse(codicefiscale.is_valid(partner.l10n_it_codice_fiscale))
 
         # Act
         with self.assertRaises(ValidationError) as ve:
